@@ -43,13 +43,13 @@ export default function AuthWithPrivateKey() {
       }
 
       // Store session in localStorage (or cookies if needed)
-      localStorage.setItem('ezstx_session', JSON.stringify({
+      localStorage.setItem('kapu_session', JSON.stringify({
         stxPrivateKey,
         address,
         createdAt: Date.now(),
       }));
       // Trigger GetInButton and other components to update
-      window.dispatchEvent(new Event('ezstx-session-update'));
+      window.dispatchEvent(new Event('kapu-session-update'));
       window.dispatchEvent(new Event('storage')); // for cross-tab/component sync
 
       router.replace(`/${address}`);

@@ -24,7 +24,7 @@ export default function WalletPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
-        const session = localStorage.getItem('ezstx_session');
+        const session = localStorage.getItem('kapu_session');
         if (session) {
           const parsed = JSON.parse(session);
           if (parsed.address) setSessionAddress(parsed.address);
@@ -41,19 +41,24 @@ export default function WalletPage() {
       setLoading(false);
       return;
     }
+    
     setLoading(true);
     const apiUrl = `https://api.hiro.so/extended/v1/address/${address}/balances?unanchored=false`;
+    
     fetch(apiUrl)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
-        setBalance(
-          data.stx && data.stx.balance
-            ? (Number(data.stx.balance) / 1e6).toLocaleString()
-            : '0'
-        );
+        const stxBalance = data.stx?.balance ? (Number(data.stx.balance) / 1e6).toLocaleString() : '0';
+        setBalance(stxBalance);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error('Failed to fetch balance:', error);
         setBalance('--');
         setLoading(false);
       });
@@ -207,7 +212,7 @@ export default function WalletPage() {
             <h2 className="text-xl font-bold mb-6">Receive</h2>
             <div className="mb-6">
               {address ? (
-                <div className="w-full  p-6 flex items-center justify-center rounded-xl bg-white p-0">
+                <div className="w-full p-6 flex items-center justify-center rounded-xl bg-white">
                   <QRCodeSVG
                     value={address}
                     width="100%"

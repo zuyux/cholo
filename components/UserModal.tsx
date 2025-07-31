@@ -20,7 +20,7 @@ export default function UserModal({ onClose }: UserModalProps) {
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
-        const session = localStorage.getItem('ezstx_session');
+        const session = localStorage.getItem('kapu_session');
         if (session) {
           const parsed = JSON.parse(session);
           if (parsed.address) setSessionAddress(parsed.address);
@@ -65,9 +65,9 @@ export default function UserModal({ onClose }: UserModalProps) {
   const handleDisconnect = async () => {
     // Remove session user if present
     if (typeof window !== "undefined") {
-      localStorage.removeItem('ezstx_session');
+      localStorage.removeItem('kapu_session');
       // Trigger GetInButton to update
-      window.dispatchEvent(new Event('ezstx-session-update'));
+      window.dispatchEvent(new Event('kapu-session-update'));
     }
     if (disconnect) {
       await disconnect();

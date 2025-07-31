@@ -18,8 +18,27 @@ const chakraPetch = Chakra_Petch({
 });
 
 export const metadata: Metadata = {
-  title: "kapu",
-  description: "Easy wallet for BTC & L2s",
+  title: "Kapu - Easy Wallet for BTC & L2s",
+  description: "Kapu makes it effortless to create, manage, and use wallets for Bitcoin and Layer 2 networks. Instantly onboard, connect, and explore the world of BTC and L2s with a simple, secure experience.",
+  keywords: "Bitcoin, L2, Layer 2, wallet, cryptocurrency, BTC, blockchain, DeFi",
+  authors: [{ name: "Kapu Team" }],
+  creator: "Kapu",
+  publisher: "Kapu",
+  robots: "index, follow",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://kapu.dev",
+    title: "Kapu - Easy Wallet for BTC & L2s",
+    description: "Kapu makes it effortless to create, manage, and use wallets for Bitcoin and Layer 2 networks.",
+    siteName: "Kapu",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Kapu - Easy Wallet for BTC & L2s",
+    description: "Kapu makes it effortless to create, manage, and use wallets for Bitcoin and Layer 2 networks.",
+    creator: "@kapu",
+  },
 };
 
 export default function RootLayout({

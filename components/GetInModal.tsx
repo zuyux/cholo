@@ -11,7 +11,8 @@ import { SeedPhraseInput } from '@/components/SeedPhraseInput';
 import { validateAndGenerateWallet } from '@/lib/walletHelpers';
 
 export default function GetInModal({ onClose }: { onClose?: () => void }) {
-  const { isWalletConnected } = useContext(HiroWalletContext);
+  const hiroWalletContext = useContext(HiroWalletContext);
+  const isWalletConnected = hiroWalletContext?.isWalletConnected || false;
   const router = useRouter();
 
   const [showSeedInput, setShowSeedInput] = useState(false);
@@ -26,15 +27,16 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
   const handleSendSeed = async () => {
     try {
       const { privateKey, address } = await validateAndGenerateWallet(seedValue.trim());
-      if (!privateKey || !address) throw new Error();
+      if (!privateKey || !address) throw new Error('Failed to generate wallet');
       if (typeof window !== "undefined") {
-        localStorage.setItem('ezstx_session', JSON.stringify({ stxPrivateKey: privateKey, address, createdAt: Date.now() }));
-        window.dispatchEvent(new Event('ezstx-session-update'));
+        localStorage.setItem('kapu_session', JSON.stringify({ stxPrivateKey: privateKey, address, createdAt: Date.now() }));
+        window.dispatchEvent(new Event('kapu-session-update'));
       }
       router.push(`/${address}`);
       if (onClose) onClose();
-    } catch {
-      alert('Invalid seed phrase.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid seed phrase';
+      alert(message);
     }
   };
 
@@ -42,12 +44,13 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
     try {
       const { mnemonic, stxPrivateKey, address } = await createStacksAccount();
       if (typeof window !== "undefined") {
-        sessionStorage.setItem('ezstx_new_wallet', JSON.stringify({ mnemonic, stxPrivateKey, address }));
+        sessionStorage.setItem('kapu_new_wallet', JSON.stringify({ mnemonic, stxPrivateKey, address }));
       }
       router.push('/account');
       if (onClose) onClose();
-    } catch {
-      alert('Failed to create account.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create account';
+      alert(message);
     }
   };
 
@@ -67,9 +70,9 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
                   <CircleHelp className="h-[18px]"/>
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs text-sm z-100">
+              <TooltipContent side="bottom" className="max-w-xs text-sm z-[100]">
                 <div>
-                  Connect or create your account using your seed phrase.<br />
+                  Create your account or restore with your seed phrase.<br />
                   <span className="text-[#2563eb] underline">
                     <a href="/support" target="_blank" rel="noopener noreferrer">Need help? Visit Support</a>
                   </span>

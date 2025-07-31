@@ -26,7 +26,7 @@ export default function AddressPage() {
   let isLoggedIn = false;
   if (typeof window !== 'undefined' && address) {
     try {
-      const session = localStorage.getItem('ezstx_session');
+      const session = localStorage.getItem('kapu_session');
       if (session) {
         const parsed = JSON.parse(session);
         if (parsed.address === address) {

@@ -3,18 +3,21 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import EmailBackupModal from "@/components/EmailBackupModal";
+import { Mail } from "lucide-react";
 
 export default function AccountCreatedPage() {
   const router = useRouter();
   const [wallet, setWallet] = useState<{ mnemonic: string; stxPrivateKey: string; address: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [showEmailBackup, setShowEmailBackup] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       setInitialLoading(true);
       setTimeout(() => {
-        const data = sessionStorage.getItem("ezstx_new_wallet");
+        const data = sessionStorage.getItem("kapu_new_wallet");
         if (data) setWallet(JSON.parse(data));
         setInitialLoading(false);
       }, 600); 
@@ -25,14 +28,14 @@ export default function AccountCreatedPage() {
     if (wallet && typeof window !== "undefined") {
       setLoading(true);
       localStorage.setItem(
-        "ezstx_session",
+        "kapu_session",
         JSON.stringify({
           stxPrivateKey: wallet.stxPrivateKey,
           address: wallet.address,
           createdAt: Date.now(),
         })
       );
-      window.dispatchEvent(new Event("ezstx-session-update"));
+      window.dispatchEvent(new Event("kapu-session-update"));
       router.push(`/${wallet.address}`);
     }
   };
@@ -72,30 +75,53 @@ export default function AccountCreatedPage() {
           <br/>
           <p>We do not keep nor be able to restore your recovery phrase. Only you have access to your account.</p>
         </div>
-        <div className="mb-4">
+        <div className="mb-6">
           <div className="font-semibold text-white mb-1 text-center">Seed Phrase:</div>
           <div className="bg-[#181818] text-white font-mono p-6 rounded break-words text-xl leading-7">{wallet.mnemonic}</div>
         </div>
-        <Button
-          onClick={handleConfirm}
-          className="w-full mt-4 bg-[#2563eb] text-white font-semibold rounded-xl py-6 hover:bg-[#1d4ed8] cursor-pointer select-none flex items-center justify-center"
-          disabled={loading}
-        >
-          {loading ? (
-            <span className="flex items-center justify-center w-full">
-              <Image
-                src="/loader.gif"
-                alt="Loading..."
-                width={75}
-                height={38}
-                style={{ minWidth: 75, minHeight: 38, width: 75, height: 38 }}
-              />
-            </span>
-          ) : (
-            <>I&apos;ve saved my credentials, continue</>
-          )}
-        </Button>
+        
+        <div className="space-y-3">
+          <Button
+            onClick={() => setShowEmailBackup(true)}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl py-4 flex items-center justify-center gap-2"
+            disabled={loading}
+          >
+            <Mail size={20} />
+            Create Email Backup (Recommended)
+          </Button>
+          
+          <Button
+            onClick={handleConfirm}
+            className="w-full bg-[#2563eb] text-white font-semibold rounded-xl py-4 hover:bg-[#1d4ed8] cursor-pointer select-none flex items-center justify-center"
+            disabled={loading}
+          >
+            {loading ? (
+              <span className="flex items-center justify-center w-full">
+                <Image
+                  src="/loader.gif"
+                  alt="Loading..."
+                  width={75}
+                  height={38}
+                  style={{ minWidth: 75, minHeight: 38, width: 75, height: 38 }}
+                />
+              </span>
+            ) : (
+              <>I&apos;ve saved my credentials, continue</>
+            )}
+          </Button>
+        </div>
       </div>
+      
+      {showEmailBackup && wallet && (
+        <EmailBackupModal
+          walletData={wallet}
+          onClose={() => setShowEmailBackup(false)}
+          onSuccess={() => {
+            setShowEmailBackup(false);
+            // Optionally auto-continue after successful backup
+          }}
+        />
+      )}
     </div>
   );
 }
