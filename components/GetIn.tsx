@@ -5,6 +5,8 @@ import { HiroWalletContext } from './HiroWalletProvider';
 import { Button } from '@/components/ui/button';
 import GetInModal from './GetInModal';
 import UserModal from './UserModal';
+import PasswordAuthModal from './PasswordAuthModal';
+import { checkSession, SessionData } from '@/lib/session-utils';
 
 interface GetInButtonProps {
   children?: React.ReactNode;
@@ -15,7 +17,9 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
   const { children } = buttonProps;
   const [showUserModal, setShowUserModal] = useState(false);
   const [showGetInModal, setShowGetInModal] = useState(false);
+  const [showPasswordAuth, setShowPasswordAuth] = useState(false);
   const [isSessionLoggedIn, setIsSessionLoggedIn] = useState(false);
+  const [pendingSessionData, setPendingSessionData] = useState<SessionData | null>(null);
   
   // Use the context but with error handling
   const hiroWalletContext = useContext(HiroWalletContext);
@@ -23,31 +27,55 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const checkSession = () => {
+      const checkSessionStatus = () => {
         try {
-          const session = localStorage.getItem('kapu_session');
-          setIsSessionLoggedIn(!!session);
+          const sessionCheck = checkSession();
+          
+          if (sessionCheck.requiresPassword && sessionCheck.sessionData) {
+            // Password-protected session needs authentication
+            setPendingSessionData(sessionCheck.sessionData);
+            setShowPasswordAuth(true);
+            setIsSessionLoggedIn(false);
+          } else if (sessionCheck.sessionData && !sessionCheck.requiresPassword) {
+            // Valid authenticated session
+            setIsSessionLoggedIn(true);
+            setShowPasswordAuth(false);
+            setPendingSessionData(null);
+          } else {
+            // No session
+            setIsSessionLoggedIn(false);
+            setShowPasswordAuth(false);
+            setPendingSessionData(null);
+          }
         } catch {
           setIsSessionLoggedIn(false);
+          setShowPasswordAuth(false);
+          setPendingSessionData(null);
         }
       };
-      checkSession();
-      window.addEventListener('storage', checkSession);
+      
+      checkSessionStatus();
+      window.addEventListener('storage', checkSessionStatus);
 
       // Also listen for route changes to update session state after navigation
-      const handleVisibility = () => checkSession();
+      const handleVisibility = () => checkSessionStatus();
       window.addEventListener('visibilitychange', handleVisibility);
 
+      // Listen for session updates
+      const handleSessionUpdate = () => checkSessionStatus();
+      window.addEventListener('kapu-session-update', handleSessionUpdate);
+
       return () => {
-        window.removeEventListener('storage', checkSession);
+        window.removeEventListener('storage', checkSessionStatus);
         window.removeEventListener('visibilitychange', handleVisibility);
+        window.removeEventListener('kapu-session-update', handleSessionUpdate);
       };
     }
   }, []);
 
   // Listen for disconnect to update session state
   useEffect(() => {
-    if (!isWalletConnected) {
+    if (isWalletConnected && typeof window !== "undefined") {
       const session = localStorage.getItem('kapu_session');
       if (!session) setIsSessionLoggedIn(false);
     }
@@ -94,6 +122,21 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
         </Button>
       </div>
       {showGetInModal && <GetInModal onClose={() => setShowGetInModal(false)} />}
+      {showPasswordAuth && pendingSessionData && (
+        <PasswordAuthModal
+          sessionData={pendingSessionData}
+          onSuccess={() => {
+            setShowPasswordAuth(false);
+            setPendingSessionData(null);
+            setIsSessionLoggedIn(true);
+            window.dispatchEvent(new Event('kapu-session-update'));
+          }}
+          onClose={() => {
+            setShowPasswordAuth(false);
+            setPendingSessionData(null);
+          }}
+        />
+      )}
     </>
   );
 };

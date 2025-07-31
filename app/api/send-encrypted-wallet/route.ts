@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
-import { encryptWalletData, generateSecureToken, validatePassword, EncryptedWallet } from '@/lib/encryption';
+import { encryptWalletData, validatePassword } from '@/lib/encryption';
+import { encryptedWallets } from '@/lib/wallet-storage';
+import CryptoJS from 'crypto-js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-
-// In-memory storage for encrypted wallets (in production, use a database)
-const encryptedWallets = new Map<string, EncryptedWallet>();
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,18 +52,23 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('Encrypting wallet data...');
-    // Encrypt wallet data
+    // Encrypt only the private key and mnemonic with password
     const encryptedWallet = encryptWalletData(walletData, password);
     
-    // Generate secure token for the recovery link
-    const token = generateSecureToken();
+    // Use hashed private key as the recovery token
+    const token = CryptoJS.SHA256(walletData.stxPrivateKey).toString();
     
-    // Store encrypted wallet with token (permanent storage)
+    // Store encrypted wallet with token (temporary storage for recovery)
     encryptedWallets.set(token, encryptedWallet);
-    console.log('Wallet encrypted and stored with token');
+    console.log('Wallet encrypted and stored with token (hashed private key)');
 
-    // Create recovery link
-    const recoveryLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/auth/recover?token=${token}`;
+    // Create recovery link - detect the current port dynamically
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    const host = process.env.NEXT_PUBLIC_BASE_URL || 
+                 process.env.VERCEL_URL || 
+                 `localhost:${process.env.PORT || '3002'}`;
+    const baseUrl = host.startsWith('http') ? host : `${protocol}://${host}`;
+    const recoveryLink = `${baseUrl}/auth/recover?token=${token}`;
     console.log('Recovery link created:', recoveryLink);
 
     // Check if Resend API key is configured
@@ -77,11 +81,24 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('Sending email via Resend...');
+    console.log('From email:', process.env.RESEND_FROM_EMAIL);
+    console.log('To email:', email);
+    console.log('API Key length:', process.env.RESEND_API_KEY?.length);
+    
+    // For Resend testing mode, emails can only be sent to the account owner's email
+    // In production with verified domain, this restriction is removed
+    const testingMode = process.env.RESEND_TESTING_MODE === 'true';
+    const toEmail = testingMode ? 'fabohax@gmail.com' : email;
+    
+    if (testingMode && email !== 'fabohax@gmail.com') {
+      console.log(`Testing mode: redirecting email from ${email} to fabohax@gmail.com`);
+    }
+    
     // Send email with recovery link
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'Kapu Wallet <noreply@kapu.app>',
-      to: [email],
-      subject: 'Your Kapu Wallet Recovery Link',
+      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+      to: [toEmail],
+      subject: `Kapu Wallet Recovery Link${testingMode && email !== toEmail ? ` (for ${email})` : ''}`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -98,6 +115,14 @@ export async function POST(request: NextRequest) {
           
           <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
             <h2 style="color: #2563eb; margin-top: 0;">Your Encrypted Wallet is Ready</h2>
+            
+            ${testingMode && email !== toEmail ? `
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;">
+              <p style="color: #856404; margin: 0; font-size: 14px;">
+                <strong>Testing Mode:</strong> This email was originally intended for ${email} but redirected to the account owner for testing purposes.
+              </p>
+            </div>
+            ` : ''}
             
             <p>Your Kapu wallet has been securely encrypted and is ready for recovery. Click the button below to access your wallet:</p>
             
@@ -131,7 +156,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      console.error('Email sending error:', error);
+      console.error('Email sending error details:', {
+        message: error.message,
+        name: error.name,
+        fullError: JSON.stringify(error, null, 2)
+      });
       return NextResponse.json(
         { error: 'Failed to send recovery email', details: error.message },
         { status: 500 }
@@ -153,6 +182,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-// Export the encrypted wallets map for use in recovery endpoint
-export { encryptedWallets };

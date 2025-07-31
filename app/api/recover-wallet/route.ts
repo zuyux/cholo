@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { encryptedWallets } from '../send-encrypted-wallet/route';
+import { encryptedWallets } from '@/lib/wallet-storage';
 import { decryptWalletData } from '@/lib/encryption';
 
 export async function POST(request: NextRequest) {
@@ -13,18 +13,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if token exists
+    // Validate token format (should be a 64-character hex string - SHA256 hash)
+    if (!/^[a-f0-9]{64}$/i.test(token)) {
+      return NextResponse.json(
+        { error: 'Invalid recovery link format' },
+        { status: 400 }
+      );
+    }
+
+    // Check if token exists in temporary storage
     const encryptedWallet = encryptedWallets.get(token);
     
     if (!encryptedWallet) {
       return NextResponse.json(
-        { error: 'Invalid recovery link' },
+        { error: 'Recovery link not found or expired' },
         { status: 404 }
       );
     }
 
     try {
-      // Attempt to decrypt the wallet data
+      // Attempt to decrypt the wallet data with provided password
       const walletData = decryptWalletData(encryptedWallet, password);
       
       // Remove the token after successful recovery (one-time use)
@@ -35,7 +43,8 @@ export async function POST(request: NextRequest) {
         wallet: walletData
       });
 
-    } catch {
+    } catch (decryptError) {
+      console.error('Decryption failed:', decryptError);
       return NextResponse.json(
         { error: 'Invalid password. Please check your password and try again.' },
         { status: 401 }

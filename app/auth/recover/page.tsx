@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import Image from 'next/image';
 import { Eye, EyeOff, Shield, AlertCircle } from 'lucide-react';
+import CryptoJS from 'crypto-js';
 
 export default function RecoverWalletPage() {
   const router = useRouter();
@@ -81,11 +82,23 @@ export default function RecoverWalletPage() {
       const data = await response.json();
 
       if (response.ok) {
-        // Store wallet data in localStorage
+        // Create password-protected session since user recovered with password
+        const passwordHash = CryptoJS.SHA256(password).toString();
+        
+        // Store wallet data with password protection
         localStorage.setItem('kapu_session', JSON.stringify({
           stxPrivateKey: data.wallet.stxPrivateKey,
           address: data.wallet.address,
           createdAt: Date.now(),
+          passwordProtected: true,
+          passwordHash: passwordHash
+        }));
+
+        // Store authentication in sessionStorage (expires when browser tab closes)
+        const passwordAuthKey = `kapu_password_auth_${data.wallet.address}`;
+        sessionStorage.setItem(passwordAuthKey, JSON.stringify({
+          hash: passwordHash,
+          authenticatedAt: Date.now()
         }));
 
         // Dispatch event to update other components

@@ -14,7 +14,7 @@ interface EmailBackupModalProps {
     mnemonic: string;
   };
   onClose: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (password: string) => void;
 }
 
 export default function EmailBackupModal({ walletData, onClose, onSuccess }: EmailBackupModalProps) {
@@ -95,7 +95,7 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
       
       if (response.ok) {
         setStep('success');
-        onSuccess?.();
+        onSuccess?.(password);
       } else {
         setStep('error');
         setErrorMessage(data.error || 'Failed to send backup email');

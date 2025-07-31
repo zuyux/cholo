@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { encryptedWallets } from '../send-encrypted-wallet/route';
+import { encryptedWallets } from '@/lib/wallet-storage';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,12 +12,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if token exists
+    // Validate token format (should be a 64-character hex string - SHA256 hash)
+    if (!/^[a-f0-9]{64}$/i.test(token)) {
+      return NextResponse.json(
+        { error: 'Invalid recovery link format' },
+        { status: 400 }
+      );
+    }
+
+    // Check if token exists in temporary storage
     const encryptedWallet = encryptedWallets.get(token);
     
     if (!encryptedWallet) {
       return NextResponse.json(
-        { error: 'Invalid recovery link' },
+        { error: 'Recovery link not found or expired' },
         { status: 404 }
       );
     }

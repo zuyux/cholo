@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import EmailBackupModal from "@/components/EmailBackupModal";
-import { Mail } from "lucide-react";
+import { Mail, CheckCircle } from "lucide-react";
+import CryptoJS from 'crypto-js';
 
 export default function AccountCreatedPage() {
   const router = useRouter();
@@ -12,6 +13,8 @@ export default function AccountCreatedPage() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [showEmailBackup, setShowEmailBackup] = useState(false);
+  const [emailBackupCreated, setEmailBackupCreated] = useState(false);
+  const [backupPassword, setBackupPassword] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -27,14 +30,28 @@ export default function AccountCreatedPage() {
   const handleConfirm = () => {
     if (wallet && typeof window !== "undefined") {
       setLoading(true);
-      localStorage.setItem(
-        "kapu_session",
-        JSON.stringify({
+      
+      let sessionData;
+      if (backupPassword) {
+        // Create password-protected session with hash
+        const passwordHash = CryptoJS.SHA256(backupPassword).toString();
+        sessionData = {
           stxPrivateKey: wallet.stxPrivateKey,
           address: wallet.address,
           createdAt: Date.now(),
-        })
-      );
+          passwordProtected: true,
+          passwordHash: passwordHash
+        };
+      } else {
+        // Regular session without password protection
+        sessionData = {
+          stxPrivateKey: wallet.stxPrivateKey,
+          address: wallet.address,
+          createdAt: Date.now()
+        };
+      }
+      
+      localStorage.setItem("kapu_session", JSON.stringify(sessionData));
       window.dispatchEvent(new Event("kapu-session-update"));
       router.push(`/${wallet.address}`);
     }
@@ -83,11 +100,24 @@ export default function AccountCreatedPage() {
         <div className="space-y-3">
           <Button
             onClick={() => setShowEmailBackup(true)}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl py-4 flex items-center justify-center gap-2"
-            disabled={loading}
+            className={`w-full font-semibold rounded-xl py-4 flex items-center justify-center gap-2 ${
+              emailBackupCreated 
+                ? 'bg-green-800 text-green-200 cursor-not-allowed' 
+                : 'bg-green-600 hover:bg-green-700 text-white'
+            }`}
+            disabled={loading || emailBackupCreated}
           >
-            <Mail size={20} />
-            Create Email Backup (Recommended)
+            {emailBackupCreated ? (
+              <>
+                <CheckCircle size={20} />
+                Email Sent
+              </>
+            ) : (
+              <>
+                <Mail size={20} />
+                Create Email Backup
+              </>
+            )}
           </Button>
           
           <Button
@@ -116,9 +146,10 @@ export default function AccountCreatedPage() {
         <EmailBackupModal
           walletData={wallet}
           onClose={() => setShowEmailBackup(false)}
-          onSuccess={() => {
+          onSuccess={(password) => {
             setShowEmailBackup(false);
-            // Optionally auto-continue after successful backup
+            setEmailBackupCreated(true);
+            setBackupPassword(password);
           }}
         />
       )}

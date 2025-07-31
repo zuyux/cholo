@@ -26,12 +26,12 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('Sending test email to:', email);
-    console.log('Using API key:', process.env.RESEND_API_KEY ? 'configured' : 'missing');
-    console.log('From email:', process.env.RESEND_FROM_EMAIL || 'Kapu Wallet <noreply@kapu.app>');
+    console.log('Using API key:', process.env.RESEND_API_KEY ? `configured (${process.env.RESEND_API_KEY.substring(0, 10)}...)` : 'missing');
+    console.log('From email:', process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev');
 
     // Send simple test email
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'Kapu Wallet <noreply@kapu.app>',
+      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
       to: [email],
       subject: 'Kapu Wallet - Test Email',
       html: `
@@ -42,7 +42,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      console.error('Email sending error:', error);
+      console.error('Email sending error details:', {
+        message: error.message,
+        name: error.name,
+        fullError: JSON.stringify(error, null, 2)
+      });
       return NextResponse.json(
         { error: 'Failed to send test email', details: error },
         { status: 500 }
