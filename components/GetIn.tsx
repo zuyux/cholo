@@ -1,12 +1,16 @@
 'use client';
 
-import { useContext, useState, useEffect } from 'react';
-import { HiroWalletContext } from './HiroWalletProvider';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCurrentAddress } from '@/hooks/useCurrentAddress';
+import { useEncryptedWallet } from './EncryptedWalletProvider';
 import { Button } from '@/components/ui/button';
 import GetInModal from './GetInModal';
 import UserModal from './UserModal';
-import PasswordAuthModal from './PasswordAuthModal';
-import { checkSession, SessionData } from '@/lib/session-utils';
+import { User } from 'lucide-react';
+import Image from 'next/image';
+import { getProfile, Profile } from '@/lib/profileApi';
+import { getIPFSUrl } from '@/lib/pinataUpload';
 
 interface GetInButtonProps {
   children?: React.ReactNode;
@@ -17,126 +21,139 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
   const { children } = buttonProps;
   const [showUserModal, setShowUserModal] = useState(false);
   const [showGetInModal, setShowGetInModal] = useState(false);
-  const [showPasswordAuth, setShowPasswordAuth] = useState(false);
   const [isSessionLoggedIn, setIsSessionLoggedIn] = useState(false);
-  const [pendingSessionData, setPendingSessionData] = useState<SessionData | null>(null);
-  
-  // Use the context but with error handling
-  const hiroWalletContext = useContext(HiroWalletContext);
-  const isWalletConnected = hiroWalletContext?.isWalletConnected || false;
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const currentAddress = useCurrentAddress();
+  // isWalletConnected is true if a wallet address is present
+  const isWalletConnected = !!currentAddress;
+  const { isAuthenticated: isEncryptedAuthenticated } = useEncryptedWallet();
+  const router = useRouter();
+
+  // Redirect to home after wallet connection
+  useEffect(() => {
+    if (isWalletConnected) {
+      router.push('/');
+    }
+  }, [isWalletConnected, router]);
+
+  // Get current address from session or wallet
+  // currentAddress is now always up-to-date from useCurrentAddress
+
+  // Load profile when address changes
+  useEffect(() => {
+    if (!currentAddress) {
+      setProfile(null);
+      return;
+    }
+    
+    const fetchProfile = async () => {
+      try {
+        const profileData = await getProfile(currentAddress);
+        setProfile(profileData);
+      } catch (error) {
+        console.error('Failed to fetch profile:', error);
+        setProfile(null);
+      }
+    };
+    
+    fetchProfile();
+  }, [currentAddress]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const checkSessionStatus = () => {
+      const checkSession = () => {
         try {
-          const sessionCheck = checkSession();
-          
-          if (sessionCheck.requiresPassword && sessionCheck.sessionData) {
-            // Password-protected session needs authentication
-            setPendingSessionData(sessionCheck.sessionData);
-            setShowPasswordAuth(true);
-            setIsSessionLoggedIn(false);
-          } else if (sessionCheck.sessionData && !sessionCheck.requiresPassword) {
-            // Valid authenticated session
-            setIsSessionLoggedIn(true);
-            setShowPasswordAuth(false);
-            setPendingSessionData(null);
-          } else {
-            // No session
-            setIsSessionLoggedIn(false);
-            setShowPasswordAuth(false);
-            setPendingSessionData(null);
-          }
+          const session = localStorage.getItem('4v4_session');
+          const hasSession = !!session;
+          console.log('Session check after cleanup:', hasSession, session); // Debug log
+          setIsSessionLoggedIn(hasSession);
         } catch {
           setIsSessionLoggedIn(false);
-          setShowPasswordAuth(false);
-          setPendingSessionData(null);
         }
       };
       
-      checkSessionStatus();
-      window.addEventListener('storage', checkSessionStatus);
+      // Initial check (after cleanup)
+      setTimeout(checkSession, 100); // Small delay to ensure cleanup completed
+      
+      // Listen for storage changes
+      window.addEventListener('storage', checkSession);
 
       // Also listen for route changes to update session state after navigation
-      const handleVisibility = () => checkSessionStatus();
+      const handleVisibility = () => checkSession();
       window.addEventListener('visibilitychange', handleVisibility);
 
-      // Listen for session updates
-      const handleSessionUpdate = () => checkSessionStatus();
-      window.addEventListener('kapu-session-update', handleSessionUpdate);
+      // Listen for custom event after login
+      window.addEventListener('4v4-session-update', checkSession);
 
       return () => {
-        window.removeEventListener('storage', checkSessionStatus);
+        window.removeEventListener('storage', checkSession);
         window.removeEventListener('visibilitychange', handleVisibility);
-        window.removeEventListener('kapu-session-update', handleSessionUpdate);
+        window.removeEventListener('4v4-session-update', checkSession);
       };
     }
   }, []);
 
   // Listen for disconnect to update session state
   useEffect(() => {
-    if (isWalletConnected && typeof window !== "undefined") {
-      const session = localStorage.getItem('kapu_session');
+    if (!isWalletConnected) {
+      const session = localStorage.getItem('4v4_session');
       if (!session) setIsSessionLoggedIn(false);
     }
   }, [isWalletConnected]);
 
-  // Also update session state when modal closes (for immediate UI update after login)
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const checkSession = () => {
-        const session = localStorage.getItem('kapu_session');
-        setIsSessionLoggedIn(!!session);
-      };
-      // Listen for custom event after login
-      window.addEventListener('kapu-session-update', checkSession);
-      return () => window.removeEventListener('kapu-session-update', checkSession);
-    }
-  }, []);
-
-  if (isSessionLoggedIn) {
-    return (
-      <div className='fixed top-8 right-8 z-[100]'>
-        <button
-          type="button"
-          className="w-9 h-9 bg-gradient-to-br from-gray-300 to-gray-500 rounded-full p-4 cursor-pointer select-none"
-          onClick={() => setShowUserModal(true)}
-          aria-label="Profile"
-        >
-        </button>
-        {showUserModal && <UserModal onClose={() => setShowUserModal(false)} />}
-      </div>
-    );
-  }
-
-  // Only show the GetInModal button, remove the connect wallet button
   return (
     <>
-      <div className='fixed top-6 right-6 z-[100]'>
-        <Button
-          onClick={() => setShowGetInModal(true)}
-          className="title rounded-full px-6 py-5 text-sm bg-[#E9E9E9] hover:bg-black text-black hover:text-white border-2 border-black hover:border-2 hover:border-white cursor-pointer select-none"
-          {...buttonProps}
-        >
-          {children || 'GET IN'}
-        </Button>
-      </div>
-      {showGetInModal && <GetInModal onClose={() => setShowGetInModal(false)} />}
-      {showPasswordAuth && pendingSessionData && (
-        <PasswordAuthModal
-          sessionData={pendingSessionData}
-          onSuccess={() => {
-            setShowPasswordAuth(false);
-            setPendingSessionData(null);
-            setIsSessionLoggedIn(true);
-            window.dispatchEvent(new Event('kapu-session-update'));
-          }}
-          onClose={() => {
-            setShowPasswordAuth(false);
-            setPendingSessionData(null);
-          }}
-        />
+  {(isSessionLoggedIn || isWalletConnected || isEncryptedAuthenticated) ? (
+        <div className='fixed top-8 right-4 md:right-8 z-100'>
+          <button
+            type="button"
+            className="w-9 h-9 border-1 border-[#555] bg-gradient-to-br from-muted to-muted-foreground/50 rounded-md overflow-hidden cursor-pointer select-none transition-all duration-200 flex items-center justify-center"
+            onClick={() => setShowUserModal(true)}
+            aria-label="Profile"
+          >
+            {profile?.avatar_cid ? (
+              <img
+                src={getIPFSUrl(profile.avatar_cid)}
+                alt="Profile"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  // Fallback to User icon if image fails to load
+                  e.currentTarget.style.display = 'none';
+                  const parent = e.currentTarget.parentElement;
+                  if (parent) {
+                    const fallback = parent.querySelector('.fallback-icon');
+                    if (fallback) fallback.classList.remove('hidden');
+                  }
+                }}
+              />
+            ) : profile?.avatar_url ? (
+              <Image
+                src={profile.avatar_url}
+                alt="Profile"
+                width={36}
+                height={36}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <User className="w-4 h-4 text-white/60" />
+            )}
+            {/* Fallback icon for IPFS load errors */}
+            <User className="w-4 h-4 text-white/60 fallback-icon hidden" />
+          </button>
+          {showUserModal && <UserModal onClose={() => setShowUserModal(false)} />}
+        </div>
+      ) : (
+        <div className='fixed top-7 right-4 md:right-8 z-100'>
+          <Button
+            onClick={() => setShowGetInModal(true)}
+            className="title rounded-md px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm bg-accent-foreground hover:bg-accent-foreground text-primary-foreground cursor-pointer select-none"
+            {...buttonProps}
+          >
+            {children || 'GET IN'}
+          </Button>
+        </div>
       )}
+      {showGetInModal && <GetInModal onClose={() => setShowGetInModal(false)} />}
     </>
   );
 };

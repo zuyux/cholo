@@ -1,9 +1,9 @@
 
-# kapu
+# kapo
 
 ## 🛡️ A Browser Wallet for Bitcoin & Layer 2s
 
-**kapu** is a lightweight in-browser wallet designed to onboard users to the Bitcoin ecosystem and its main Layer 2 protocols like Lightning Network, Stacks, and Rootstock. Built for Web2 simplicity with Web3 power.
+**kapo** is a lightweight in-browser wallet designed to onboard users to the Bitcoin ecosystem and its main Layer 2 protocols like Lightning Network, Stacks, and Rootstock. Built for Web2 simplicity with Web3 power.
 
 ---
 
@@ -31,8 +31,8 @@
 ## 🚀 Getting Started
 
 ```bash
-git clone https://github.com/fabohax/kapu
-cd kapu
+git clone https://github.com/fabohax/kapo
+cd kapo
 npm install
 ```
 
@@ -54,7 +54,7 @@ For the secure email backup feature, you'll need to set up Resend (email service
    Edit `.env.local` with your values:
    ```bash
    RESEND_API_KEY=your_resend_api_key_here
-   RESEND_FROM_EMAIL=Kapu Wallet <noreply@yourdomain.com>
+   RESEND_FROM_EMAIL=kapo Wallet <noreply@yourdomain.com>
    NEXT_PUBLIC_BASE_URL=http://localhost:3000
    ```
 

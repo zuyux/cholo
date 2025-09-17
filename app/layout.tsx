@@ -1,10 +1,20 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Chakra_Petch } from "next/font/google";
-import Link from "next/link";
+import { Navbar } from "@/components/Navbar";
 import { GetInButton } from "@/components/GetIn";
 import { Providers } from '@/components/ui/provider';
+import { WalletProvider } from '@/components/WalletProvider';
 import { Toaster } from "@/components/ui/sonner"
+import AppLoadingProvider from "@/components/AppLoadingProvider";
+import GlobalErrorHandler from "@/components/GlobalErrorHandler";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 const inter = Inter({
   variable: "--font-inter",
@@ -47,17 +57,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${chakraPetch.variable} antialiased`}>
-        <Link href="/" className="fixed top-6 left-6 z-50">
-          kapu
-        </Link>
-        <Providers>
-          <>
-            <GetInButton />
-            {children}
-          </>
-        </Providers>
+        <GlobalErrorHandler />
+        <WalletProvider>
+          <Providers>
+            <AppLoadingProvider>
+              <Navbar />
+              <GetInButton />
+              <main >
+                {children}
+              </main>
+            </AppLoadingProvider>
+          </Providers>
+        </WalletProvider>
         <Toaster />
       </body>
     </html>

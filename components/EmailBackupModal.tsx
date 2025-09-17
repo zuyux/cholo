@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Mail, Eye, EyeOff, Shield, CheckCircle2, AlertCircle } from 'lucide-react';
-import Image from 'next/image';
+import { LoaderCircle } from 'lucide-react';
 
 interface EmailBackupModalProps {
   walletData: {
@@ -112,13 +112,7 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
         return (
           <div className="text-center py-8">
             <div className="flex justify-center mb-4">
-              <Image
-                src="/loader.gif"
-                alt="Sending..."
-                width={60}
-                height={30}
-                style={{ minWidth: 60, minHeight: 30, width: 60, height: 30 }}
-              />
+              <LoaderCircle className="animate-spin text-primary" size={40} strokeWidth={2.5} />
             </div>
             <h3 className="text-xl font-semibold text-white mb-2">Sending Encrypted Backup</h3>
             <p className="text-gray-400">Encrypting your wallet and sending it to your email...</p>

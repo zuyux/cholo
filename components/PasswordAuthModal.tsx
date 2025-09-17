@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import Image from 'next/image';
+import { LoaderCircle } from 'lucide-react';
 import { authenticateSession, SessionData } from '@/lib/session-utils';
 
 interface PasswordAuthModalProps {
@@ -118,13 +118,7 @@ export default function PasswordAuthModal({ sessionData, onSuccess, onClose }: P
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <Image
-                    src="/loader.gif"
-                    alt="Loading..."
-                    width={20}
-                    height={10}
-                    style={{ minWidth: 20, minHeight: 10, width: 20, height: 10 }}
-                  />
+                  <LoaderCircle className="animate-spin text-primary" size={18} strokeWidth={2.5} />
                   Authenticating...
                 </span>
               ) : (

@@ -1,13 +1,13 @@
-import { HiroWalletContext } from '@/components/HiroWalletProvider';
-import { useContext } from 'react';
+import { useDevnetWallet } from '@/lib/devnet-wallet-context';
+import { useWallet } from '@/components/WalletProvider';
 
+/**
+ * Returns the current Stacks address from the devnet wallet context.
+ * Returns null if no wallet is selected.
+ */
 export function useCurrentAddress(): string | null {
-  const { network, testnetAddress } = useContext(HiroWalletContext);
-
-  switch (network) {
-    case 'testnet':
-      return testnetAddress;
-    default:
-      return null;
-  }
+  const { currentWallet } = useDevnetWallet?.() || {};
+  const { address } = useWallet();
+  // Prefer devnet wallet if present, otherwise use extension wallet
+  return currentWallet?.stxAddress ?? address ?? null;
 }
