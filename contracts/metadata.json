@@ -1,34 +1,9 @@
 {
   "name": "CHOLO",
   "symbol": "CHOLO",
-  "description": "$CHOLO es un token fungible en Stacks con suministro fijo de 7,000,000,000 unidades. Inspirado en el perro peruano sin pelo y la cultura Chimú, $CHOLO financia iniciativas DeSci, I+D y proyectos comunitarios de código abierto libre.",
-  "image": "ipfs://bafybeid6oo6es4erf2etwtxmpac3z2v7swfamkcslqq2q55yseshl3wwoa",
+  "description": "$CHOLO es un token fungible en Stacks con suministro fijo de 7,000,000,000 unidades. Inspirado en el perro peruano sin pelo, considerado patrimonio nacional y símbolo memético, $CHOLO financia iniciativas de Ciencias Descentralizadas (DeSci), I+D y proyectos comunitarios de código abierto libre.",
+  "image": "https://scarlet-charming-caterpillar-527.mypinata.cloud/ipfs/bafybeid6oo6es4erf2etwtxmpac3z2v7swfamkcslqq2q55yseshl3wwoa?pinataGatewayToken=WDVkPJAmXmW1nurA6sGfTrCC1SYW0fFAof8iFvqQCkiWL2Ku3thexOLpUv_JyEI8",
   "decimals": 8,
   "total_supply": 7000000000,
-  "website": "https://cholo.meme",
-  "attributes": [
-    {
-      "trait_type": "Theme",
-      "value": "DeSci & Cultura Prehispánica"
-    },
-    {
-      "trait_type": "DAO",
-      "value": "ZUYUX"
-    },
-    {
-      "trait_type": "Utility",
-      "value": "R&D funding, staking rewards, community incentives"
-    }
-  ],
-  "links": {
-    "whitepaper": "https://cholo.meme/doc",
-    "repository": "https://github.com/zuyux/cholo"
-  },
-  "tags": [
-    "Stacks",
-    "DeSci",
-    "Memecoin",
-    "PerroPeruano",
-    "Chimú"
-  ]
+  "website": "https://cholo.meme"
 }

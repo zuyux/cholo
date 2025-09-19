@@ -146,7 +146,9 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
         <div className='fixed top-7 right-4 md:right-8 z-100'>
           <Button
             onClick={() => setShowGetInModal(true)}
-            className="title rounded-md px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm bg-accent-foreground hover:bg-accent-foreground text-primary-foreground cursor-pointer select-none"
+            variant="default"
+            size="lg"
+            className="title px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm"
             {...buttonProps}
           >
             {children || 'GET IN'}

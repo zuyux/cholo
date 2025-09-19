@@ -32,7 +32,7 @@
 ;; Variables y Constantes
 (define-data-var contract-owner principal tx-sender)
 (define-data-var total-minted uint u0)
-(define-constant TOKEN_URI u"https://your-ipfs-or-link/cholo-token-meta")
+(define-constant TOKEN_URI (concat u"https://hax.pe/ipfs/cholo/metadata" TOKEN_CID))
 (define-constant TOKEN_NAME "CHOLO")
 (define-constant TOKEN_SYMBOL "CHOLO")
 (define-constant TOKEN_DECIMALS u8)
@@ -108,6 +108,7 @@
 
 ;; Inicialización
 (begin
-    (try! (ft-mint? CHOLO MAX_SUPPLY tx-sender))
-    (var-set total-minted MAX_SUPPLY)
+  (try! (ft-mint? CHOLO u1000000000 'SP000000000000000000002Q6VF78.cholo-dao)) ;; 1B to contract principal (replace with real contract principal)
+  (try! (ft-mint? CHOLO u6000000000 tx-sender)) ;; 6B to tx-sender
+  (var-set total-minted MAX_SUPPLY)
 )
