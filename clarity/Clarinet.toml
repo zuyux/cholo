@@ -1,5 +1,0 @@
-[project]
-name = "cholo"
-
-[contracts.cholo]
-path = "contracts/cholo.clar"

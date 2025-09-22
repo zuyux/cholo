@@ -28,7 +28,7 @@ const chakraPetch = Chakra_Petch({
 });
 
 export const metadata: Metadata = {
-  title: "$CHOLO MEMECOIN - Token DeSci en Stacks",
+  title: "$CHOLO - PRIMERA MEMECOIN DE LATAM EN BITCOIN",
   description: "$CHOLO es un token fungible en Stacks (7,000,000,000 unidades), inspirado en el perro peruano sin pelo, símbolo memético y patrimonio nacional. Financia DeSci, I+D y proyectos comunitarios open source.",
   keywords: "$CHOLO, Stacks, memecoin, DeSci, token, blockchain, comunidad, open source, Perú, perro peruano",
   authors: [{ name: "$CHOLO Team" }],
@@ -38,14 +38,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "es_PE",
-    url: "https://cholo.dev",
-    title: "$CHOLO MEMECOIN - Token DeSci en Stacks",
+    url: "https://cholo.meme",
+    title: "$CHOLO - PRIMERA MEMECOIN DE LATAM EN BITCOIN",
     description: "$CHOLO es un token fungible en Stacks (7,000,000,000 unidades), inspirado en el perro peruano sin pelo, símbolo memético y patrimonio nacional. Financia DeSci, I+D y proyectos comunitarios open source.",
     siteName: "$CHOLO",
   },
   twitter: {
     card: "summary_large_image",
-    title: "$CHOLO MEMECOIN - Token DeSci en Stacks",
+    title: "$CHOLO - PRIMERA MEMECOIN DE LATAM EN BITCOIN",
     description: "$CHOLO es un token fungible en Stacks (7,000,000,000 unidades), inspirado en el perro peruano sin pelo, símbolo memético y patrimonio nacional. Financia DeSci, I+D y proyectos comunitarios open source.",
     creator: "@cholomemecoin",
   }
