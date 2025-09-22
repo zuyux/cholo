@@ -28,27 +28,27 @@ const chakraPetch = Chakra_Petch({
 });
 
 export const metadata: Metadata = {
-  title: "Kapu - Easy Wallet for BTC & L2s",
-  description: "Kapu makes it effortless to create, manage, and use wallets for Bitcoin and Layer 2 networks. Instantly onboard, connect, and explore the world of BTC and L2s with a simple, secure experience.",
-  keywords: "Bitcoin, L2, Layer 2, wallet, cryptocurrency, BTC, blockchain, DeFi",
-  authors: [{ name: "Kapu Team" }],
-  creator: "Kapu",
-  publisher: "Kapu",
+  title: "$CHOLO MEMECOIN - Token DeSci en Stacks",
+  description: "$CHOLO es un token fungible en Stacks (7,000,000,000 unidades), inspirado en el perro peruano sin pelo, símbolo memético y patrimonio nacional. Financia DeSci, I+D y proyectos comunitarios open source.",
+  keywords: "$CHOLO, Stacks, memecoin, DeSci, token, blockchain, comunidad, open source, Perú, perro peruano",
+  authors: [{ name: "$CHOLO Team" }],
+  creator: "$CHOLO",
+  publisher: "$CHOLO",
   robots: "index, follow",
   openGraph: {
     type: "website",
-    locale: "en_US",
-    url: "https://kapu.dev",
-    title: "Kapu - Easy Wallet for BTC & L2s",
-    description: "Kapu makes it effortless to create, manage, and use wallets for Bitcoin and Layer 2 networks.",
-    siteName: "Kapu",
+    locale: "es_PE",
+    url: "https://cholo.dev",
+    title: "$CHOLO MEMECOIN - Token DeSci en Stacks",
+    description: "$CHOLO es un token fungible en Stacks (7,000,000,000 unidades), inspirado en el perro peruano sin pelo, símbolo memético y patrimonio nacional. Financia DeSci, I+D y proyectos comunitarios open source.",
+    siteName: "$CHOLO",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Kapu - Easy Wallet for BTC & L2s",
-    description: "Kapu makes it effortless to create, manage, and use wallets for Bitcoin and Layer 2 networks.",
-    creator: "@kapu",
-  },
+    title: "$CHOLO MEMECOIN - Token DeSci en Stacks",
+    description: "$CHOLO es un token fungible en Stacks (7,000,000,000 unidades), inspirado en el perro peruano sin pelo, símbolo memético y patrimonio nacional. Financia DeSci, I+D y proyectos comunitarios open source.",
+    creator: "@cholomemecoin",
+  }
 };
 
 export default function RootLayout({

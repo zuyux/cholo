@@ -2,8 +2,8 @@
 ;; version: 1.1.0
 ;; summary: $CHOLO es un token fungible con suministro fijo de 7,000,000,000 para financiar iniciativas DeSci y comunidad.
 ;; description: El token $CHOLO impulsa proyectos descentralizados de ciencia y tecnología (DeSci) y cultura comunitaria en Stacks. 
-;; Sirve como unidad de valor estándar para transacciones, incentivos y gobernanza dentro del ecosistema CHOLO y la DAO ZUYUX. 
-;; Tiene 8 decimales, total de 7,000,000,000 unidades, y la unidad mínima es llamada ‘OXY’. 
+;; Sirve como unidad de valor estándar para transacciones, incentivos y gobernanza dentro del ecosistema CHOLO y la CHOLODAO. 
+;; Tiene 8 decimales, total de 7,000,000,000 unidades. 
 ;; Cumple con el estándar SIP-010 sin dependencias externas.
 
 (define-trait sip-010-trait
@@ -32,11 +32,11 @@
 ;; Variables y Constantes
 (define-data-var contract-owner principal tx-sender)
 (define-data-var total-minted uint u0)
-(define-constant TOKEN_URI (concat u"https://hax.pe/ipfs/cholo/metadata" TOKEN_CID))
+(define-constant TOKEN_URI (concat u"https://cholo.meme/ipfs/metadata" TOKEN_CID))
 (define-constant TOKEN_NAME "CHOLO")
 (define-constant TOKEN_SYMBOL "CHOLO")
 (define-constant TOKEN_DECIMALS u8)
-(define-constant MAX_SUPPLY u7000000000)
+(define-constant MAX_SUPPLY u8000000000)
 (define-constant BURN_ADDRESS 'SP000000000000000000002Q6VF78)
 
 ;; Funciones Read-Only
@@ -106,9 +106,46 @@
   )
 )
 
+;; --- Public functions
+(define-public (transfer-many
+    (recipients (list 200 {
+        amount: uint,
+        sender: principal,
+        to: principal,
+        memo: (optional (buff 34))
+    })))
+  (fold transfer-many-iter recipients (ok u0))
+)
+
+(define-private (transfer-many-iter
+    (individual-transfer {
+        amount: uint,
+        sender: principal,
+        to: principal,
+        memo: (optional (buff 34))
+    })
+    (result (response uint uint)))
+  (match result
+    index
+      (begin
+        (unwrap!
+          (transfer
+            (get amount individual-transfer)
+            (get sender individual-transfer)
+            (get to individual-transfer)
+            (get memo individual-transfer))
+          (err (+ u9000 index))) ;; ERR_TRANSFER_INDEX_PREFIX = u9000
+        (ok (+ index u1))
+      )
+    err-index
+      (err err-index)
+  )
+)
+
 ;; Inicialización
 (begin
   (try! (ft-mint? CHOLO u1000000000 'SP000000000000000000002Q6VF78.cholo-dao)) ;; 1B to contract principal (replace with real contract principal)
   (try! (ft-mint? CHOLO u6000000000 tx-sender)) ;; 6B to tx-sender
   (var-set total-minted MAX_SUPPLY)
 )
+
