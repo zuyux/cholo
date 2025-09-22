@@ -104,10 +104,16 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
   return (
     <>
   {(isSessionLoggedIn || isWalletConnected || isEncryptedAuthenticated) ? (
-        <div className='fixed top-8 right-4 md:right-8 z-100'>
+        <div className='fixed top-0 right-0 p-0 md:p-0 z-100 hidden md:block'>
           <button
             type="button"
-            className="w-9 h-12 border-1 border-[#555] bg-black rounded-md overflow-hidden cursor-pointer select-none transition-all duration-200 flex items-center justify-center"
+            className="w-10 sm:w-12 md:w-14 h-10 sm:h-12 md:h-14
+              border-2 border-white/20 hover:border-white
+              bg-black rounded-lg overflow-hidden 
+              cursor-pointer select-none 
+              transition-all duration-200 
+              flex items-center jx-4 md:px-ustify-center
+              shadow-lg hover:shadow-xl"
             onClick={() => setShowUserModal(true)}
             aria-label="Profile"
           >
@@ -143,12 +149,20 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
           {showUserModal && <UserModal onClose={() => setShowUserModal(false)} />}
         </div>
       ) : (
-        <div className='fixed top-7 right-4 md:right-8 z-100'>
+        <div className='fixed top-0 right-0 p-0 md:p-0 z-100 hidden md:block'>
           <Button
             onClick={() => setShowGetInModal(true)}
-            variant="default"
+            variant="outline"
             size="lg"
-            className="bg-black text-foreground px-9 md:px-9 py-9 md:py-8 text-xl md:text-sm"
+            className="title bg-black text-foreground 
+              px-4 sm:px-6 md:px-8 lg:px-10
+              py-2 sm:py-3 md:py-4 lg:py-6
+              text-2xl sm:text-3xl md:text-4xl lg:text-5xl
+              font-bold transition-all duration-200 
+              hover:bg-white hover:text-black
+              border-2 border-white/20 hover:border-white
+              rounded-lg shadow-lg
+              cursor-pointer"
             {...buttonProps}
           >
             {children || 'GET IN'}

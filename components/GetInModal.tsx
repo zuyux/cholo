@@ -133,34 +133,34 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] select-none">
       <div
-        className="bg-white text-black rounded-[21px] w-[360px] pt-8 pb-0 px-0 shadow-2xl flex flex-col items-center
+        className="bg-[#111] text-white rounded-[21px] w-[360px] pt-8 pb-0 px-0 shadow-2xl flex flex-col items-center
           transition-all duration-300 ease-out
-          opacity-0 translate-y-[-24px] animate-getinmodal border border-[#555]"
+          opacity-0 translate-y-[-24px] animate-getinmodal border border-white/10"
       >
         {/* Header */}
         <div className="w-full grid grid-cols-3 gap-0 relative mb-6 px-6">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button className="justify-start bg-none border-none text-[#555] text-sm cursor-pointer" aria-label="Help" type="button">
+                <button className="justify-start bg-none border-none text-white/60 hover:text-white/80 text-sm cursor-pointer transition-colors" aria-label="Help" type="button">
                   <CircleHelp className="h-[18px]"/>
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs text-sm z-100">
+              <TooltipContent side="bottom" className="max-w-xs text-sm z-100 bg-[#222] text-white border-white/10">
                 <div>
                   Connect or create your account using your wallet or seed phrase.<br />
-                  <span className="text-background underline">
+                  <span className="text-white/60 hover:text-white underline">
                     <a href="/support" target="_blank" rel="noopener noreferrer">Need help? Visit Support</a>
                   </span>
                 </div>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <div className="title text-center font-semibold text-lg text-black tracking-wider flex items-center justify-center select-none">
+          <div className="title text-center font-semibold text-lg text-white tracking-wider flex items-center justify-center select-none">
             Get In
           </div>
           <div className="flex items-center justify-end">
-            <button onClick={onClose} className="bg-none border-none text-[#555] text-xl cursor-pointer" aria-label="Close" type="button">
+            <button onClick={onClose} className="bg-none border-none text-white/60 hover:text-white/80 text-xl cursor-pointer transition-colors" aria-label="Close" type="button">
               <X className="h-[18px]"/>
             </button>
           </div>
@@ -172,11 +172,11 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
             /* Encrypted Wallet Flow */
             <div className="space-y-4">
               <div className="text-center">
-                <h3 className="text-lg font-semibold text-black mb-2">
+                <h3 className="text-lg font-semibold text-white mb-2">
                   {encryptedWalletMode === 'create' ? 'Secure Your Wallet' : 
                    isSessionLocked ? 'Unlock Your Wallet' : 'Access Your Wallet'}
                 </h3>
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-white/60">
                   {encryptedWalletMode === 'create' 
                     ? 'Create a password to encrypt your wallet locally'
                     : 'Enter your password to unlock your encrypted wallet'
@@ -210,7 +210,7 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
                         window.location.reload();
                       }
                     }}
-                    className="w-full h-10 rounded-[7px] bg-transparent text-[#555] text-sm border cursor-pointer flex items-center px-4 hover:bg-transparent hover:text-red-700 mt-2"
+                    className="w-full h-10 rounded-[7px] bg-transparent text-white/60 text-sm border border-white/10 cursor-pointer flex items-center px-4 hover:bg-white/5 hover:text-red-500 mt-2 transition-all"
                     type="button"
                   >
                     Clear All Sessions
@@ -225,7 +225,7 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
               <div>
                 <Button
                   onClick={() => setShowImportModal(true)}
-                  className="w-full h-12 rounded-[9px] bg-[#111] text-white font-semibold text-base border border-foreground cursor-pointer flex items-center px-4 hover:bg-[#000]"
+                  className="w-full h-12 rounded-[9px] bg-[#222] text-white font-semibold text-base border border-white/10 cursor-pointer flex items-center px-4 hover:bg-[#333] transition-all"
                   type="button"
                 >
                   <Image src="/wallet-ico.svg" alt="Wallet" width={18} height={18} className="invert mr-2"/>
