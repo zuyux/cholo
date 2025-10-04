@@ -7,7 +7,7 @@ import { Navbar } from '@/components/Navbar';
 
 const IMAGES = [
   '/meme/CHOLOSURF.jpg',
-  '/meme/CHOLOBULL.jpg',
+  '/meme/CHOLOBULL.png',
   '/meme/CHOLONORTE.webp',
   '/meme/CHOLOBEACH.webp'
 ];

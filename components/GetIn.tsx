@@ -152,7 +152,6 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
         <div className='fixed top-0 right-0 p-0 md:p-0 z-100 hidden md:block'>
           <Button
             onClick={() => setShowGetInModal(true)}
-            variant="outline"
             size="lg"
             className="title bg-black text-foreground 
               px-4 sm:px-6 md:px-8 lg:px-10
@@ -165,7 +164,7 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
               cursor-pointer"
             {...buttonProps}
           >
-            {children || 'GET IN'}
+            {children || 'ENTRA'}
           </Button>
         </div>
       )}
