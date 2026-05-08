@@ -237,16 +237,16 @@ export default function ConnectModal({ onClose, onSuccess, onError }: ConnectMod
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[101] select-none">
-      <div className="bg-white rounded-2xl w-[400px] max-w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200">
+      <div className="bg-card rounded-2xl w-[400px] max-w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-border">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
-          <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+        <div className="flex items-center justify-between p-6 border-b border-border">
+          <h2 className="text-xl font-semibold text-card-foreground flex items-center">
             <Wallet className="w-5 h-5 mr-2" />
             Connect a wallet
           </h2>
           <button 
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-900 transition-colors cursor-pointer"
+            className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             aria-label="Close"
           >
             <X className="w-6 h-6" />
@@ -256,9 +256,11 @@ export default function ConnectModal({ onClose, onSuccess, onError }: ConnectMod
         <div className="p-6 space-y-6">
           {connectMode === 'wallets' && (
             <>
-              <div className="mb-2 text-gray-700 text-sm">
-                You don&apos;t have unknown wallets in your browser that support this app. You need to install a wallet to proceed.
-              </div>
+              {(wallets.length === 0 || wallets.every(w => !w.installed)) && (
+                <div className="mb-2 text-gray-700 text-sm">
+                  You don&apos;t have unknown wallets in your browser that support this app. You need to install a wallet to proceed.
+                </div>
+              )}
               <div className="space-y-3">
                 {wallets.map(w => (
                   <div key={w.id} className="flex items-center justify-between rounded-lg px-4 py-3">
@@ -302,7 +304,7 @@ export default function ConnectModal({ onClose, onSuccess, onError }: ConnectMod
                                   setAddress(stxAddress);
                                   onSuccess?.();
                                   onClose();
-                                  router.push(`/wallet`);
+                                  router.push(`/${stxAddress}`);
                                 } else {
                                   setError('No Stacks address found in Leather.');
                                   onError?.('No Stacks address found in Leather.');

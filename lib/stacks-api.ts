@@ -6,12 +6,12 @@ type HTTPHeaders = Record<string, string>;
 
 export function isDevnetEnvironment(): boolean {
   return process.env.NODE_ENV === 'development' && 
-         process.env.NEXT_PUBLIC_STACKS_NETWORK === 'devnet';
+         process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet';
 }
 
 export function isTestnetEnvironment(network?: Network): boolean {
   return network === 'testnet' || 
-         process.env.NEXT_PUBLIC_STACKS_NETWORK === 'testnet';
+         process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet';
 }
 
 export function getApiUrl(network: Network) {

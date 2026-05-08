@@ -15,9 +15,7 @@ import { makeSTXTokenTransfer, broadcastTransaction } from "@stacks/transactions
 import { getApiUrl } from "@/lib/stacks-api";
 import { getPersistedNetwork } from "@/lib/network";
 
-import Image from "next/image";
-import { LoaderCircle } from 'lucide-react';
-import { Copy, X } from "lucide-react";
+import { Copy, X, LoaderCircle, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
@@ -25,7 +23,7 @@ import { fetchRecentTransactions } from "@/lib/fetchRecentTransactions";
 
 export default function WalletPage() {
   const address = useCurrentAddress() || "";
-  const [balance, setBalance] = useState<string | null>(null);
+  const [choloBalance, setCholoBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Modal states
@@ -45,10 +43,10 @@ export default function WalletPage() {
     }
   }, [showSend]);
 
-  // Fetch balance
+  // Fetch CHOLO token balance
   useEffect(() => {
     if (!address) {
-      setBalance(null);
+      setCholoBalance(null);
       setLoading(false);
       return;
     }
@@ -58,23 +56,36 @@ export default function WalletPage() {
     // Get current network and use appropriate API endpoint
     const currentNetwork = getPersistedNetwork();
     const apiBaseUrl = getApiUrl(currentNetwork);
+    
+    // Fetch CHOLO token balance from the fungible token contract
     const apiUrl = `${apiBaseUrl}/extended/v1/address/${address}/balances?unanchored=false`;
     
-    console.log(`Fetching balance from ${currentNetwork} network:`, apiUrl);
+    console.log(`Fetching CHOLO balance from ${currentNetwork} network:`, apiUrl);
     
     fetch(apiUrl)
       .then(res => res.json())
       .then(data => {
-        setBalance(
-          data.stx && data.stx.balance
-            ? (Number(data.stx.balance) / 1e6).toLocaleString()
-            : '0'
-        );
+        // Look for CHOLO token in fungible_tokens
+        let choloTokenBalance = '0';
+        
+        // The full token identifier includes ::cholo suffix
+        const choloTokenKey = 'SP193GXQTNHVV9WSAPHAB89M6R9QSEXZKS3774CMD.cholo::cholo';
+        
+        if (data.fungible_tokens && data.fungible_tokens[choloTokenKey]) {
+          const balance = data.fungible_tokens[choloTokenKey].balance;
+          // CHOLO has 8 decimals based on the balance format (8000000000 = 80 CHOLO)
+          choloTokenBalance = (Number(balance) / 1e8).toLocaleString();
+        }
+        
+        console.log('CHOLO Balance data:', data.fungible_tokens);
+        console.log('CHOLO Balance:', choloTokenBalance);
+        
+        setCholoBalance(choloTokenBalance);
         setLoading(false);
       })
       .catch((error) => {
-        console.error('Failed to fetch balance:', error);
-        setBalance('--');
+        console.error('Failed to fetch CHOLO balance:', error);
+        setCholoBalance('--');
         setLoading(false);
       });
   }, [address]);
@@ -219,6 +230,7 @@ export default function WalletPage() {
     [key: string]: unknown;
   };
   const [transactions, setTransactions] = useState<RecentTransaction[]>([]);
+  const [txLoading, setTxLoading] = useState(false);
 
   // Fetch recent transactions
   useEffect(() => {
@@ -226,24 +238,26 @@ export default function WalletPage() {
       setTransactions([]);
       return;
     }
+    setTxLoading(true);
     const network = getPersistedNetwork();
     fetchRecentTransactions(address, network, 10)
       .then(setTransactions)
-      .catch(() => setTransactions([]));
+      .catch(() => setTransactions([]))
+      .finally(() => setTxLoading(false));
   }, [address, showSend]);
 
 
   // If no wallet address, ask to connect wallet
   if (!address) {
     return (
-      <div className="max-w-xl mx-auto my-24 p-8 rounded-2xl border-[1px] shadow flex flex-col items-center justify-center select-none bg-white dark:bg-black border-gray-200 dark:border-[#333] text-gray-900 dark:text-white">
+      <div className="max-w-xl mx-auto my-24 p-8 rounded-2xl border shadow flex flex-col items-center justify-center select-none bg-card text-card-foreground border-border">
         <h1 className="text-3xl font-bold mb-6">Wallet</h1>
-        <p className="mb-8 text-lg text-gray-600 dark:text-gray-300 text-center">
+        <p className="mb-8 text-lg text-muted-foreground text-center">
           Please connect your wallet to manage your funds.
         </p>
         <Link
           href="/"
-          className="py-3 px-6 rounded-xl border-[1px] bg-blue-600 text-white hover:bg-white hover:text-blue-600 border-blue-600 dark:border-[#333] transition-all duration-200 focus:outline-none cursor-pointer select-none"
+          className="py-3 px-6 rounded-xl border bg-primary text-primary-foreground hover:bg-secondary hover:text-secondary-foreground border-border transition-all duration-200 focus:outline-none cursor-pointer select-none"
         >
           Connect Wallet
         </Link>
@@ -252,33 +266,31 @@ export default function WalletPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-  <div className="max-w-xl mx-auto p-8 bg-accent-background rounded-2xl border-[1px] border-[#333] shadow text-accent-foreground select-none min-w-[100vw] lg:min-w-1/4">
-      
-      <h1 className="title text-3xl font-bold hidden">Wallet</h1>
-      <div className="mt-16 flex justify-center">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background">
+
+      <div className="max-w-xl mx-auto p-8 bg-card rounded-2xl border border-border shadow text-card-foreground select-none min-w-[100vw] lg:min-w-1/4">
+        <div className="my-2 flex items-center justify-left">
+          <Wallet className="w-8 h-8 text-foreground" />
+          <h1 className="title text-lg mx-4 font-bold">Wallet</h1>
+        </div>        
+      <div className="mt-2 flex justify-center">
         <div className="flex items-center gap-3">
           {loading ? (
-            <Image
-              src="/loaderb.gif"
-              alt="Loading..."
-              width={32}
-              height={16}
-              unoptimized
-              style={{ minWidth: 32, minHeight: 16, width: 32, height: 16 }}
-              className="title text-xl inline-block align-middle"
-            />
+            <LoaderCircle className="animate-spin text-foreground" size={32} />
           ) : (
-            <span className="title text-2xl font-bold">{balance} <span className="text-lg">STX</span></span>
+            <div className="my-8 text-center">
+              <div className="title text-2xl font-bold select-all">{choloBalance}</div>
+              <div className="text-lg">CHOLO</div>
+            </div>
           )}
         </div>
       </div>
 
-            {/* Network and Address Info - Only show if not mainnet */}
+      {/* Network and Address Info - Only show if not mainnet */}
       {getPersistedNetwork() !== 'mainnet' && (
-        <div className="mb-16 p-4 bg-accent-background rounded-lg">
+        <div className="mb-16 p-4 bg-muted rounded-lg">
           <div className="flex items-center justify-center text-sm">
-            <span className="text-blue-400 text-center uppercase">{getPersistedNetwork()}</span>
+            <span className="text-primary text-center uppercase">{getPersistedNetwork()}</span>
           </div>
         </div>
       )}
@@ -286,13 +298,13 @@ export default function WalletPage() {
       
       <div className="grid grid-cols-2 gap-4 mb-8">
         <button
-          className="bg-background border border-foreground text-accent-foreground w-full px-6 py-3 rounded-xl hover:bg-white hover:text-black cursor-pointer select-none transition-all duration-200"
+          className="bg-background border border-border text-foreground w-full px-6 py-3 rounded-xl hover:bg-secondary hover:text-secondary-foreground cursor-pointer select-none transition-all duration-200"
           onClick={() => setShowSend(true)}
         >
           Send
         </button>
         <button
-          className="bg-transparent border-[1px] border-[#333] text-accent-foreground px-6 py-3 rounded-xl hover:bg-white hover:text-black cursor-pointer select-none transition-all duration-200"
+          className="bg-transparent border border-border text-foreground px-6 py-3 rounded-xl hover:bg-secondary hover:text-secondary-foreground cursor-pointer select-none transition-all duration-200"
           onClick={() => setShowReceive(true)}
         >
           Receive
@@ -425,23 +437,23 @@ export default function WalletPage() {
       {/* Recent Transactions */}
       <div className="mt-10">
         <h2 className="text-lg font-semibold mb-4">Recent Transactions</h2>
-        <div className="bg-background rounded-xl py-4 max-h-96 overflow-y-auto">
-          {loading ? (
+        <div className="bg-card rounded-xl py-4 max-h-96 overflow-y-auto border border-border">
+          {txLoading ? (
             <div className="flex justify-center items-center py-8">
-              <LoaderCircle className="animate-spin text-primary" size={24} strokeWidth={2.5} />
+              <LoaderCircle className="animate-spin text-foreground" size={32} />
             </div>
           ) : transactions.length === 0 ? (
-            <div className="text-center text-gray-500 py-8">No recent transactions found.</div>
+            <div className="text-center text-muted-foreground py-8">No recent transactions found.</div>
           ) : (
             <ul className="space-y-4">
               {transactions.map((tx) => (
-                <li key={tx.tx_id} className="border-b border-gray-200 last:border-b-0 pb-3">
+                <li key={tx.tx_id} className="border-b border-border last:border-b-0 pb-3">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="font-mono text-xs text-gray-700 dark:text-gray-300 break-all">
+                      <div className="font-mono text-xs text-muted-foreground break-all">
                         <a href={`https://explorer.hiro.so/txid/${tx.tx_id}?chain=${getPersistedNetwork()}`}
                           target="_blank" rel="noopener noreferrer"
-                          className="hover:underline text-blue-600 dark:text-blue-400">
+                          className="hover:underline text-primary">
                           {tx.tx_id.slice(0, 10)}...{tx.tx_id.slice(-8)}
                         </a>
                       </div>

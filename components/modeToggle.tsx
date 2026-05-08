@@ -14,6 +14,21 @@ import {
 
 export function ModeToggle() {
   const { setTheme } = useTheme()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <Button variant="ghost" size="sm" className="h-8 px-3 cursor-pointer text-muted-foreground hover:text-foreground">
+        <div className="relative flex items-center">
+          <Sun className="h-4 w-4" />
+        </div>
+      </Button>
+    )
+  }
 
   return (
     <DropdownMenu modal={false}>

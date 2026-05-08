@@ -18,7 +18,7 @@ export const DevnetWalletProvider: FC<ProviderProps> = ({ children }) => {
 
   // Auto-select first wallet only for devnet environments
   useEffect(() => {
-    const networkEnv = process.env.NEXT_PUBLIC_STACKS_NETWORK || 'testnet';
+    const networkEnv = process.env.NEXT_PUBLIC_STACKS_NETWORK || 'mainnet';
     if (networkEnv === 'devnet') {
       // Auto-select the deployer wallet for convenience in devnet only
       setCurrentWallet(devnetWallets[0]);

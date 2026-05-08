@@ -131,36 +131,40 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] select-none">
+    <div 
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] select-none"
+      onClick={onClose}
+    >
       <div
-        className="bg-[#111] text-white rounded-[21px] w-[360px] pt-8 pb-0 px-0 shadow-2xl flex flex-col items-center
+        className="bg-card text-card-foreground rounded-[21px] w-[360px] pt-8 pb-0 px-0 shadow-2xl flex flex-col items-center
           transition-all duration-300 ease-out
-          opacity-0 translate-y-[-24px] animate-getinmodal border border-white/10"
+          opacity-0 translate-y-[-24px] animate-getinmodal border border-border"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="w-full grid grid-cols-3 gap-0 relative mb-6 px-6">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button className="justify-start bg-none border-none text-white/60 hover:text-white/80 text-sm cursor-pointer transition-colors" aria-label="Help" type="button">
+                <button className="justify-start bg-none border-none text-muted-foreground text-sm cursor-pointer" aria-label="Help" type="button">
                   <CircleHelp className="h-[18px]"/>
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs text-sm z-100 bg-[#222] text-white border-white/10">
+              <TooltipContent side="bottom" className="max-w-xs text-sm z-100">
                 <div>
                   Connect or create your account using your wallet or seed phrase.<br />
-                  <span className="text-white/60 hover:text-white underline">
+                  <span className="text-primary underline">
                     <a href="/support" target="_blank" rel="noopener noreferrer">Need help? Visit Support</a>
                   </span>
                 </div>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <div className="title text-center font-semibold text-lg text-white tracking-wider flex items-center justify-center select-none">
+          <div className="title text-center font-semibold text-lg text-foreground tracking-wider flex items-center justify-center select-none">
             Get In
           </div>
           <div className="flex items-center justify-end">
-            <button onClick={onClose} className="bg-none border-none text-white/60 hover:text-white/80 text-xl cursor-pointer transition-colors" aria-label="Close" type="button">
+            <button onClick={onClose} className="bg-none border-none text-muted-foreground text-xl cursor-pointer" aria-label="Close" type="button">
               <X className="h-[18px]"/>
             </button>
           </div>
@@ -172,11 +176,11 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
             /* Encrypted Wallet Flow */
             <div className="space-y-4">
               <div className="text-center">
-                <h3 className="text-lg font-semibold text-white mb-2">
+                <h3 className="text-lg font-semibold text-foreground mb-2">
                   {encryptedWalletMode === 'create' ? 'Secure Your Wallet' : 
                    isSessionLocked ? 'Unlock Your Wallet' : 'Access Your Wallet'}
                 </h3>
-                <p className="text-sm text-white/60">
+                <p className="text-sm text-muted-foreground">
                   {encryptedWalletMode === 'create' 
                     ? 'Create a password to encrypt your wallet locally'
                     : 'Enter your password to unlock your encrypted wallet'
@@ -199,10 +203,10 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
                   <Button
                     onClick={() => {
                       if (typeof window !== 'undefined') {
-                        localStorage.removeItem('4v4_session');
-                        localStorage.removeItem('4v4_session_config');
-                        localStorage.removeItem('4v4_session_locked');
-                        localStorage.removeItem('4v4_encrypted_session');
+                        localStorage.removeItem('cholo_session');
+                        localStorage.removeItem('cholo_session_config');
+                        localStorage.removeItem('cholo_session_locked');
+                        localStorage.removeItem('cholo_encrypted_session');
                         localStorage.removeItem('4v4_encrypted_wallet');
                         localStorage.removeItem('blockstack-session');
                         localStorage.removeItem('connect-session');
@@ -210,7 +214,7 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
                         window.location.reload();
                       }
                     }}
-                    className="w-full h-10 rounded-[7px] bg-transparent text-white/60 text-sm border border-white/10 cursor-pointer flex items-center px-4 hover:bg-white/5 hover:text-red-500 mt-2 transition-all"
+                    className="w-full h-10 rounded-[7px] bg-card text-muted-foreground text-sm border border-border cursor-pointer flex items-center px-4 hover:bg-muted hover:text-destructive mt-2"
                     type="button"
                   >
                     Clear All Sessions
@@ -225,21 +229,21 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
               <div>
                 <Button
                   onClick={() => setShowImportModal(true)}
-                  className="w-full h-12 rounded-[9px] bg-[#222] text-white font-semibold text-base border border-white/10 cursor-pointer flex items-center px-4 hover:bg-[#333] transition-all"
+                  className="w-full h-12 rounded-[9px] bg-secondary text-secondary-foreground font-semibold text-base border border-border cursor-pointer flex items-center px-4 hover:bg-secondary/80"
                   type="button"
                 >
-                  <Image src="/wallet-ico.svg" alt="Wallet" width={18} height={18} className="invert mr-2"/>
+                  <Image src="/wallet-ico.svg" alt="Wallet" width={18} height={18} className="invert dark:invert-0 mr-2"/>
                   <span className="text-center flex-1">Connect Wallet</span>
                 </Button>
                 {walletError && (
-                  <div className="text-red-500 text-xs mt-2 text-center">{walletError}</div>
+                  <div className="text-destructive text-xs mt-2 text-center">{walletError}</div>
                 )}
               </div>
               {/* Encrypted Wallet Option */}
               <div>
                 <Button
                   onClick={handleShowEncryptedWallet}
-                  className="w-full h-12 rounded-[9px] bg-[#2563eb] text-white font-semibold text-base border border-[#2563eb] cursor-pointer flex items-center px-4 hover:bg-[#1d4ed8]"
+                  className="w-full h-12 rounded-[9px] bg-primary text-primary-foreground font-semibold text-base border border-primary cursor-pointer flex items-center px-4 hover:bg-primary/90"
                   type="button"
                 >
                   <Shield className="w-[18px] h-[18px] mx-[5px]"/>
@@ -265,8 +269,8 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
           />
         )}
         {/* Terms */}
-        <div className="w-full rounded-b-2xl text-center text-xs text-white/60 tracking-wider p-6 px-8">
-          By Signing In, you agree to our <Link href="/terms" className="text-white/80 hover:text-white underline">Terms of Service</Link> and <Link href="/privacy" className="text-white/80 hover:text-white underline">Privacy Policy</Link>
+        <div className="w-full rounded-b-2xl text-center text-xs text-muted-foreground tracking-wider p-6 px-8">
+          By Signing In, you agree to our <Link href="/terms" className="hover:text-foreground">Terms of Service</Link> and <Link href="/privacy" className="hover:text-foreground">Privacy Policy</Link>
         </div>
       </div>
     </div>

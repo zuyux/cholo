@@ -1,7 +1,3 @@
-/**
- * Password Input Component for Encrypted Wallet Authentication
- * Provides secure password entry with strength validation and user feedback
- */
 
 'use client';
 
@@ -135,7 +131,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email address"
-              className="bg-white text-black border-gray-300 focus:border-blue-500 focus:bg-white placeholder:text-gray-500"
+              className="bg-white text-black border-gray-300 focus-none focus:bg-white placeholder:text-gray-500"
               disabled={isLoading}
               autoComplete="email"
               required

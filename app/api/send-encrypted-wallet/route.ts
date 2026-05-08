@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { encryptWalletData, validatePassword } from '@/lib/encryption';
 import { encryptedWallets } from '@/lib/wallet-storage';
-import CryptoJS from 'crypto-js';
+import * as CryptoJS from 'crypto-js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 

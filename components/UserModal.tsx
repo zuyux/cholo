@@ -92,11 +92,11 @@ export default function UserModal({ onClose }: UserModalProps) {
   };
 
   const handleSignOut = () => {
-    // Clear the 4v4 session and wallet address
+    // Clear the cholo session and wallet address
     if (typeof window !== "undefined") {
-      localStorage.removeItem('4v4_session');
+      localStorage.removeItem('cholo_session');
       localStorage.removeItem('walletAddress'); 
-      window.dispatchEvent(new Event("4v4-session-update"));
+      window.dispatchEvent(new Event("cholo-session-update"));
     }
     setAddress(null); // Also clear in context
     onClose();
@@ -111,16 +111,16 @@ export default function UserModal({ onClose }: UserModalProps) {
 
   return (
     <div className="fixed top-10 right-4 z-[200]">
-      <div ref={modalRef} className="relative rounded-3xl p-4 w-[340px] flex flex-col items-center shadow-xl pointer-events-auto z-[201] opacity-0 translate-y-[-24px] animate-getinmodal backdrop-blur-md border bg-white dark:bg-black border-gray-200 dark:border-white/20 text-gray-900 dark:text-white">
+      <div ref={modalRef} className="relative rounded-3xl p-4 w-[340px] flex flex-col items-center shadow-xl pointer-events-auto z-[201] opacity-0 translate-y-[-24px] animate-getinmodal backdrop-blur-md border bg-card border-border text-card-foreground">
         <div className="flex items-center w-full mb-6">
           {getPersistedNetwork() !== 'mainnet' && (
-            <div className="text-xs text-gray-500 dark:text-gray-400 text-center m-3 mt-4">
+            <div className="text-xs text-muted-foreground text-center m-3 mt-4">
               {getPersistedNetwork().toUpperCase()}
             </div>
           )}
           <Link
             href={`/${currentAddress}`}
-            className="title mr-4 text-right text-gray-900 dark:text-white text-xl font-bold tracking-wider flex-1 cursor-pointer select-none"
+            className="title mr-4 text-right text-foreground text-xl font-bold tracking-wider flex-1 cursor-pointer select-none"
             onClick={onClose}
           >
             {profile?.username || profile?.display_name || truncateMiddle(currentAddress)}
@@ -156,18 +156,18 @@ export default function UserModal({ onClose }: UserModalProps) {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <User className="w-4 h-4 text-gray-400 dark:text-white/60" />
+                <User className="w-4 h-4 text-muted-foreground" />
               )}
               {/* Fallback icon for IPFS load errors */}
-              <User className="w-4 h-4 text-gray-400 dark:text-white/60 fallback-icon hidden" />
+              <User className="w-4 h-4 text-muted-foreground fallback-icon hidden" />
             </button>
           </div>
         </div>
         <div className="w-full mb-4">
-          <div className="flex items-center justify-between bg-white/5 backdrop-blur-sm rounded-xl px-6 py-4 mb-2 border border-white/10">
+          <div className="flex items-center justify-between bg-muted/50 backdrop-blur-sm rounded-xl px-6 py-4 mb-2 border border-border">
             <button
               onClick={() => { onClose(); router.push('/wallet'); }}
-              className="title text-2xl font-bold text-left text-gray-900 dark:text-white hover:underline cursor-pointer select-none"
+              className="title text-2xl font-bold text-left text-foreground hover:underline cursor-pointer select-none"
               style={{ background: "none", border: "none", padding: 0, margin: 0 }}
             >
               {balance === null ? (
@@ -180,7 +180,7 @@ export default function UserModal({ onClose }: UserModalProps) {
             </button>
             <button
               onClick={() => { onClose(); router.push('/wallet'); }}
-              className="text-base text-gray-500 dark:text-white/50 text-right hover:underline cursor-pointer select-none"
+              className="text-base text-muted-foreground text-right hover:underline cursor-pointer select-none"
               style={{ background: "none", border: "none", padding: 0, margin: 0 }}
             >
               Balance
@@ -190,30 +190,30 @@ export default function UserModal({ onClose }: UserModalProps) {
         <div className="grid grid-cols-2 gap-3 w-full mb-2 font-sans text-base">
           <button
             onClick={() => { onClose(); router.push('/notifications'); }}
-            className="flex flex-col items-center justify-center bg-white/5 backdrop-blur-sm rounded-xl py-4 text-sm text-gray-900 dark:text-white hover:bg-white/7 border border-white/10 cursor-pointer select-none"
+            className="flex flex-col items-center justify-center bg-muted/50 backdrop-blur-sm rounded-xl py-4 text-sm text-foreground hover:bg-muted/70 border border-border cursor-pointer select-none"
           >
             <Bell className="mb-2" size={20} />
             Notifications
           </button>
           <button
             onClick={() => { onClose(); router.push('/settings'); }}
-            className="flex flex-col items-center justify-center bg-white/5 backdrop-blur-sm rounded-xl py-4 text-sm text-gray-900 dark:text-white hover:bg-white/7 border border-white/10 cursor-pointer select-none"
+            className="flex flex-col items-center justify-center bg-muted/50 backdrop-blur-sm rounded-xl py-4 text-sm text-foreground hover:bg-muted/70 border border-border cursor-pointer select-none"
           >
             <Settings className="mb-2" size={20} />
             Settings
           </button>
           <button
             onClick={() => { onClose(); router.push('/support'); }}
-            className="flex flex-col items-center justify-center bg-white/5 backdrop-blur-sm rounded-xl py-4 text-sm text-gray-900 dark:text-white hover:bg-white/7 border border-white/10 cursor-pointer select-none"
+            className="flex flex-col items-center justify-center bg-muted/50 backdrop-blur-sm rounded-xl py-4 text-sm text-foreground hover:bg-muted/70 border border-border cursor-pointer select-none"
           >
             <HelpCircle className="mb-2" size={20} />
             Help
           </button>
           <button
-            className="flex flex-col items-center justify-center bg-white/5 backdrop-blur-sm rounded-xl py-4 text-gray-900 dark:text-white text-sm hover:bg-white/7 border border-white/10 cursor-pointer select-none"
+            className="flex flex-col items-center justify-center bg-muted/50 backdrop-blur-sm rounded-xl py-4 text-foreground text-sm hover:bg-muted/70 border border-border cursor-pointer select-none"
             onClick={handleSignOut}
           >
-            <LogOut className="text-gray-900 dark:text-white mb-2" size={20} />
+            <LogOut className="text-foreground mb-2" size={20} />
             Disconnect
           </button>
         </div>

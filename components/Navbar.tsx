@@ -14,7 +14,7 @@ export const Navbar = () => {
         <div className="flex justify-between items-center h-full">
           {/* Logo Section */}
           <Link href="/" className="no-underline">
-            <Button className="title py-6 font-extrabold text-3xl md:text-5xl lg:text-6xl text-white backdrop-blur-sm bg-transparent hover:bg-black/20">
+            <Button className="title mx-2 my-6 font-extrabold text-xl md:text-3xl lg:text-6xl text-foreground backdrop-blur-sm bg-transparent hover:bg-black/20">
               $CHOLO
             </Button>
           </Link>

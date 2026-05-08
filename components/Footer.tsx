@@ -1,4 +1,5 @@
 import { ModeToggle } from './modeToggle';
+import { NetworkSelector } from './NetworkSelector';
 
 export default function Footer() {
   return (
@@ -6,10 +7,10 @@ export default function Footer() {
       <div className="container mx-auto h-full px-4">
         <div className="flex justify-between items-center h-full">
           <p className="text-center flex-1 truncate">
-            $CHOLO is a meme token with no intrinsic value or expectation of financial return. 
-            The token is for entertainment purposes only.
+$CHOLO is a meme token created for cultural and educational purposes. It does not represent an investment and carries no promise of financial return.
           </p>
-          <div className="ml-4 flex items-center h-full">
+          <div className="ml-4 flex items-center gap-2 h-full">
+            <NetworkSelector />
             <ModeToggle />
           </div>
         </div>

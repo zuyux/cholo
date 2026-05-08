@@ -1,5 +1,5 @@
 import { getConnectedAccountPasskeyByAddress } from './connectedAccountsApi';
-import CryptoJS from 'crypto-js';
+import * as CryptoJS from 'crypto-js';
 
 /**
  * Unlocks a wallet by decrypting the passkey for a given address using the provided password.

@@ -119,7 +119,7 @@ export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
         }
       } else {
         // Check for legacy devnet wallets in development
-        const networkEnv = process.env.NEXT_PUBLIC_STACKS_NETWORK || 'testnet';
+        const networkEnv = process.env.NEXT_PUBLIC_STACKS_NETWORK || 'mainnet';
         if (networkEnv === 'devnet') {
           setDevnetWallet(devnetWallets[0]); // Auto-select deployer for devnet
         }
@@ -131,46 +131,46 @@ export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
     // Listen for storage events
     const handleStorageEvents = (event: Event) => {
       switch (event.type) {
-        case '4v4-encrypted-session-created':
+        case 'cholo-encrypted-session-created':
           setIsWalletEncrypted(true);
           setWalletInfo(getWalletInfo());
           setIsAuthenticated(true);
           setIsSessionLocked(false);
           break;
-        case '4v4-session-locked':
+        case 'cholo-session-locked':
           setIsSessionLocked(true);
           setIsAuthenticated(false);
           setCurrentWallet(null);
           break;
-        case '4v4-session-unlocked':
+        case 'cholo-session-unlocked':
           setIsSessionLocked(false);
           break;
-        case '4v4-session-deleted':
+        case 'cholo-session-deleted':
           setIsWalletEncrypted(false);
           setWalletInfo(null);
           setIsAuthenticated(false);
           setCurrentWallet(null);
           setIsSessionLocked(false);
           break;
-        case '4v4-session-accessed':
+        case 'cholo-session-accessed':
           // Session activity detected, could update UI indicators
           break;
       }
     };
 
     // Add event listeners
-    window.addEventListener('4v4-encrypted-session-created', handleStorageEvents);
-    window.addEventListener('4v4-session-locked', handleStorageEvents);
-    window.addEventListener('4v4-session-unlocked', handleStorageEvents);
-    window.addEventListener('4v4-session-deleted', handleStorageEvents);
-    window.addEventListener('4v4-session-accessed', handleStorageEvents);
+    window.addEventListener('cholo-encrypted-session-created', handleStorageEvents);
+    window.addEventListener('cholo-session-locked', handleStorageEvents);
+    window.addEventListener('cholo-session-unlocked', handleStorageEvents);
+    window.addEventListener('cholo-session-deleted', handleStorageEvents);
+    window.addEventListener('cholo-session-accessed', handleStorageEvents);
 
     return () => {
-      window.removeEventListener('4v4-encrypted-session-created', handleStorageEvents);
-      window.removeEventListener('4v4-session-locked', handleStorageEvents);
-      window.removeEventListener('4v4-session-unlocked', handleStorageEvents);
-      window.removeEventListener('4v4-session-deleted', handleStorageEvents);
-      window.removeEventListener('4v4-session-accessed', handleStorageEvents);
+      window.removeEventListener('cholo-encrypted-session-created', handleStorageEvents);
+      window.removeEventListener('cholo-session-locked', handleStorageEvents);
+      window.removeEventListener('cholo-session-unlocked', handleStorageEvents);
+      window.removeEventListener('cholo-session-deleted', handleStorageEvents);
+      window.removeEventListener('cholo-session-accessed', handleStorageEvents);
     };
   }, []);
 
@@ -261,7 +261,7 @@ export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
           encrypted: true,
           createdAt: Date.now()
         };
-        localStorage.setItem('4v4_session', JSON.stringify(sessionData));
+        localStorage.setItem('cholo_session', JSON.stringify(sessionData));
       }
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Failed to create encrypted wallet');
@@ -278,9 +278,9 @@ export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
     try {
       // Clean up previous session/config before unlocking (robust session logic)
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('4v4_encrypted_session');
-        localStorage.removeItem('4v4_session_config');
-        localStorage.removeItem('4v4_session_locked');
+        localStorage.removeItem('cholo_encrypted_session');
+        localStorage.removeItem('cholo_session_config');
+        localStorage.removeItem('cholo_session_locked');
       }
 
       const walletData = await retrieveEncryptedWallet(passphrase);
@@ -301,7 +301,7 @@ export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
           encrypted: true,
           createdAt: Date.now()
         };
-        localStorage.setItem('4v4_session', JSON.stringify(sessionData));
+        localStorage.setItem('cholo_session', JSON.stringify(sessionData));
       }
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Failed to unlock wallet');

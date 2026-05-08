@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useCurrentAddress } from '@/hooks/useCurrentAddress';
 import { useEncryptedWallet } from './EncryptedWalletProvider';
 import { Button } from '@/components/ui/button';
@@ -27,14 +26,6 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
   // isWalletConnected is true if a wallet address is present
   const isWalletConnected = !!currentAddress;
   const { isAuthenticated: isEncryptedAuthenticated } = useEncryptedWallet();
-  const router = useRouter();
-
-  // Redirect to home after wallet connection
-  useEffect(() => {
-    if (isWalletConnected) {
-      router.push('/');
-    }
-  }, [isWalletConnected, router]);
 
   // Get current address from session or wallet
   // currentAddress is now always up-to-date from useCurrentAddress
@@ -63,7 +54,7 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
     if (typeof window !== "undefined") {
       const checkSession = () => {
         try {
-          const session = localStorage.getItem('4v4_session');
+          const session = localStorage.getItem('cholo_session');
           const hasSession = !!session;
           console.log('Session check after cleanup:', hasSession, session); // Debug log
           setIsSessionLoggedIn(hasSession);
@@ -83,12 +74,12 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
       window.addEventListener('visibilitychange', handleVisibility);
 
       // Listen for custom event after login
-      window.addEventListener('4v4-session-update', checkSession);
+      window.addEventListener('cholo-session-update', checkSession);
 
       return () => {
         window.removeEventListener('storage', checkSession);
         window.removeEventListener('visibilitychange', handleVisibility);
-        window.removeEventListener('4v4-session-update', checkSession);
+        window.removeEventListener('cholo-session-update', checkSession);
       };
     }
   }, []);
@@ -96,7 +87,7 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
   // Listen for disconnect to update session state
   useEffect(() => {
     if (!isWalletConnected) {
-      const session = localStorage.getItem('4v4_session');
+      const session = localStorage.getItem('cholo_session');
       if (!session) setIsSessionLoggedIn(false);
     }
   }, [isWalletConnected]);
@@ -104,16 +95,10 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
   return (
     <>
   {(isSessionLoggedIn || isWalletConnected || isEncryptedAuthenticated) ? (
-        <div className='fixed top-0 right-0 p-0 md:p-0 z-100 hidden md:block'>
+        <div className='fixed top-8 right-3 md:right-8 z-100'>
           <button
             type="button"
-            className="w-10 sm:w-12 md:w-14 h-10 sm:h-12 md:h-14
-              border-2 border-white/20 hover:border-white
-              bg-black rounded-lg overflow-hidden 
-              cursor-pointer select-none 
-              transition-all duration-200 
-              flex items-center jx-4 md:px-ustify-center
-              shadow-lg hover:shadow-xl"
+            className="w-9 h-9 border-1 border-[#555] bg-gradient-to-br from-muted to-muted-foreground/50 rounded-full overflow-hidden cursor-pointer select-none transition-all duration-200 flex items-center justify-center"
             onClick={() => setShowUserModal(true)}
             aria-label="Profile"
           >
@@ -149,22 +134,13 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
           {showUserModal && <UserModal onClose={() => setShowUserModal(false)} />}
         </div>
       ) : (
-        <div className='fixed top-0 right-0 p-0 md:p-0 z-100 hidden md:block'>
+        <div className='fixed top-7 right-4 md:right-8 z-100'>
           <Button
             onClick={() => setShowGetInModal(true)}
-            size="lg"
-            className="title bg-black text-foreground 
-              px-4 sm:px-6 md:px-8 lg:px-10
-              py-2 sm:py-3 md:py-4 lg:py-6
-              text-2xl sm:text-3xl md:text-4xl lg:text-5xl
-              font-bold transition-all duration-200 
-              hover:bg-white hover:text-black
-              border-2 border-white/20 hover:border-white
-              rounded-lg shadow-lg
-              cursor-pointer"
+            className="title rounded-full px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm bg-foreground hover:bg-accent-foreground text-background cursor-pointer select-none"
             {...buttonProps}
           >
-            {children || 'ENTRA'}
+            {children || 'ENTRAR'}
           </Button>
         </div>
       )}
