@@ -8,12 +8,11 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, Lock, Shield, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { validatePassphraseStrength } from '@/lib/encryptedStorage';
 
 interface PasswordInputProps {
-  onSubmit: (password: string, email?: string) => Promise<void>;
+  onSubmit: (password: string, email?: string, verifiedEmailToken?: string) => Promise<void>;
   mode: 'unlock' | 'create' | 'change';
   isLoading?: boolean;
   error?: string | null;
@@ -21,7 +20,6 @@ interface PasswordInputProps {
   showStrengthIndicator?: boolean;
   autoFocus?: boolean;
   onCancel?: () => void;
-  confirmRequired?: boolean;
 }
 
 export const PasswordInput: React.FC<PasswordInputProps> = ({
@@ -32,20 +30,24 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
   placeholder = 'Enter your password',
   showStrengthIndicator = false,
   autoFocus = true,
-  onCancel,
-  confirmRequired = false,
+  onCancel
 }) => {
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [email, setEmail] = useState('');
+  const [emailCode, setEmailCode] = useState('');
+  const [emailCodeSent, setEmailCodeSent] = useState(false);
+  const [emailCodeMessage, setEmailCodeMessage] = useState<string | null>(null);
+  const [emailCodeError, setEmailCodeError] = useState<string | null>(null);
+  const [emailCodeLoading, setEmailCodeLoading] = useState(false);
+  const [verifiedEmailToken, setVerifiedEmailToken] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
   const [strengthInfo, setStrengthInfo] = useState<{
     isValid: boolean;
     score: number;
     feedback: string[];
   } | null>(null);
   const [touched, setTouched] = useState(false);
+  const isBusy = isLoading || emailCodeLoading;
 
   // Validate password strength in real-time for create/change modes
   useEffect(() => {
@@ -74,10 +76,10 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
         return; // Invalid email format
       }
     }
-    
-    // Validate password match for create/change modes
-    if (confirmRequired && password !== confirmPassword) {
-      return; // Error will be shown by validation logic below
+
+    if (mode === 'create' && !verifiedEmailToken) {
+      setEmailCodeError('Verify your email before creating your wallet.');
+      return;
     }
     
     // Validate strength for create/change modes
@@ -86,15 +88,105 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
     }
     
     try {
-      await onSubmit(password, mode === 'create' ? email : undefined);
+      await onSubmit(
+        password,
+        mode === 'create' ? email : undefined,
+        mode === 'create' ? verifiedEmailToken ?? undefined : undefined
+      );
       // Clear form on success
       setPassword('');
-      setConfirmPassword('');
       setEmail('');
+      setEmailCode('');
+      setEmailCodeSent(false);
+      setEmailCodeMessage(null);
+      setEmailCodeError(null);
+      setVerifiedEmailToken(null);
       setTouched(false);
     } catch (error) {
       // Error will be displayed via props
       console.error('Password submission failed:', error);
+    }
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    setEmailCode('');
+    setEmailCodeSent(false);
+    setEmailCodeMessage(null);
+    setEmailCodeError(null);
+    setVerifiedEmailToken(null);
+  };
+
+  const handleRequestEmailCode = async () => {
+    const trimmedEmail = email.trim();
+    setEmailCodeMessage(null);
+    setEmailCodeError(null);
+    setVerifiedEmailToken(null);
+
+    if (!trimmedEmail) {
+      setEmailCodeError('Email is required to create a wallet.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setEmailCodeError('Enter a valid email address.');
+      return;
+    }
+
+    try {
+      setEmailCodeLoading(true);
+      const response = await fetch('/api/auth/email-code/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedEmail }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to send verification code');
+      }
+
+      setEmailCodeSent(true);
+      setEmailCodeMessage('Verification code sent. Check your email.');
+    } catch (requestError) {
+      setEmailCodeError(requestError instanceof Error ? requestError.message : 'Failed to send verification code');
+    } finally {
+      setEmailCodeLoading(false);
+    }
+  };
+
+  const handleVerifyEmailCode = async () => {
+    const trimmedEmail = email.trim();
+    const trimmedCode = emailCode.trim();
+    setEmailCodeMessage(null);
+    setEmailCodeError(null);
+
+    if (!/^\d{6}$/.test(trimmedCode)) {
+      setEmailCodeError('Enter the 6-digit verification code.');
+      return;
+    }
+
+    try {
+      setEmailCodeLoading(true);
+      const response = await fetch('/api/auth/email-code/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedEmail, code: trimmedCode }),
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.verifiedEmailToken) {
+        throw new Error(result.error || 'Failed to verify code');
+      }
+
+      setVerifiedEmailToken(result.verifiedEmailToken);
+      setEmailCodeMessage('Email verified. You can create your wallet now.');
+    } catch (verifyError) {
+      setVerifiedEmailToken(null);
+      setEmailCodeError(verifyError instanceof Error ? verifyError.message : 'Failed to verify code');
+    } finally {
+      setEmailCodeLoading(false);
     }
   };
 
@@ -112,11 +204,10 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
     return 'Strong';
   };
 
-  const passwordMatch = !confirmRequired || password === confirmPassword;
   const emailValid = mode !== 'create' || (email.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
-  const isFormValid = password.trim() && 
+  const isFormValid = password.trim() &&
     emailValid &&
-    (!confirmRequired || (confirmPassword && passwordMatch)) &&
+    (mode !== 'create' || Boolean(verifiedEmailToken)) &&
     (!strengthInfo || strengthInfo.isValid);
 
   return (
@@ -125,34 +216,82 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
         {/* Email Input - Only for create mode */}
         {mode === 'create' && (
           <div className="space-y-2">
-            <Label htmlFor="email" className="flex items-center gap-2 text-sm font-medium">
-              <AlertCircle className="h-4 w-4" />
-              Email Address
-            </Label>
             <Input
               id="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => handleEmailChange(e.target.value)}
               placeholder="Enter your email address"
-              className="bg-white text-black border-gray-300 focus:border-blue-500 focus:bg-white placeholder:text-gray-500"
-              disabled={isLoading}
-              autoComplete="email"
+              className="bg-background text-foreground focus:border-ring border-[1px] border-foreground/10 py-6"
+              disabled={isBusy || Boolean(verifiedEmailToken)}
+              autoComplete="off"
+              autoFocus
               required
             />
-            <p className="text-xs text-gray-400">
-              Your email will be used to securely store your encrypted account information.
-            </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                onClick={handleRequestEmailCode}
+                disabled={!emailValid || isBusy || Boolean(verifiedEmailToken)}
+                className="flex-1 text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {emailCodeSent ? 'Resend Code' : 'Send Code'}
+              </Button>
+              {emailCodeSent && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setEmail('');
+                    setEmailCode('');
+                    setEmailCodeSent(false);
+                    setEmailCodeMessage(null);
+                    setEmailCodeError(null);
+                    setVerifiedEmailToken(null);
+                  }}
+                  disabled={isBusy}
+                  className="bg-transparent text-muted-foreground border border-border hover:bg-secondary"
+                >
+                  Change
+                </Button>
+              )}
+            </div>
+            {emailCodeSent && (
+              <div className="flex gap-2">
+                <Input
+                  id="email-code"
+                  type="text"
+                  inputMode="numeric"
+                  value={emailCode}
+                  onChange={(e) => {
+                    setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                    setVerifiedEmailToken(null);
+                    setEmailCodeError(null);
+                  }}
+                  placeholder="6-digit code"
+                  className="bg-background text-foreground focus:border-ring border-[1px] border-foreground/10 py-6"
+                  disabled={isBusy || Boolean(verifiedEmailToken)}
+                  autoComplete="one-time-code"
+                />
+                <Button
+                  type="button"
+                  onClick={handleVerifyEmailCode}
+                  disabled={emailCode.length !== 6 || isBusy || Boolean(verifiedEmailToken)}
+                  className="text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Verify
+                </Button>
+              </div>
+            )}
+            {(emailCodeMessage || emailCodeError) && (
+              <p className={`text-xs ${emailCodeError ? 'text-red-400' : 'text-green-400'}`}>
+                {emailCodeError || emailCodeMessage}
+              </p>
+            )}
           </div>
         )}
 
         {/* Main Password Input */}
         <div className="space-y-2">
-          <Label htmlFor="password" className="flex items-center gap-2 text-sm font-medium">
-            <Lock className="h-4 w-4" />
-            {mode === 'unlock' ? 'Enter Password' : 
-             mode === 'create' ? 'Create Password' : 'New Password'}
-          </Label>
           <div className="relative">
             <Input
               id="password"
@@ -160,62 +299,25 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
-                setTouched(true);
+                if (!touched) setTouched(true);
               }}
               placeholder={placeholder}
-              className="pr-12 bg-white text-black border-gray-300 focus:border-blue-500 focus:bg-white placeholder:text-gray-500"
-              autoFocus={autoFocus}
-              disabled={isLoading}
+              className="bg-background text-foreground pr-12 focus:border-ring border-[1px] border-foreground/10 py-6"
+              autoFocus={mode !== 'create' && autoFocus}
+              disabled={isBusy}
               autoComplete="new-password"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              disabled={isLoading}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-200"
+              tabIndex={-1}
+              disabled={isBusy}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
         </div>
-
-        {/* Confirm Password Input */}
-        {confirmRequired && (
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword" className="flex items-center gap-2 text-sm font-medium">
-              <Shield className="h-4 w-4" />
-              Confirm Password
-            </Label>
-            <div className="relative">
-              <Input
-                id="confirmPassword"
-                type={showConfirm ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm your password"
-                className={`pr-12 bg-white text-black border-gray-300 focus:border-blue-500 focus:bg-white placeholder:text-gray-500 ${
-                  confirmPassword && !passwordMatch ? 'border-red-500' : ''
-                }`}
-                disabled={isLoading}
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirm(!showConfirm)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                disabled={isLoading}
-              >
-                {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            {confirmPassword && !passwordMatch && (
-              <p className="text-red-400 text-xs flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" />
-                Passwords do not match
-              </p>
-            )}
-          </div>
-        )}
 
         {/* Strength Indicator */}
         {showStrengthIndicator && strengthInfo && touched && (
@@ -226,7 +328,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
                 {getStrengthText(strengthInfo.score)}
               </span>
             </div>
-            <div className="w-full bg-white rounded-full h-2">
+            <div className="w-full bg-gray-700 rounded-full h-2">
               <div
                 className={`h-2 rounded-full transition-all duration-300 ${getStrengthColor(strengthInfo.score)}`}
                 style={{ width: `${(strengthInfo.score / 7) * 100}%` }}
@@ -245,7 +347,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
             {strengthInfo.isValid && (
               <p className="text-green-400 text-xs flex items-center gap-1">
                 <CheckCircle2 className="h-3 w-3" />
-                Password meets security requirements
+                The password meets the security requirements
               </p>
             )}
           </div>
@@ -265,14 +367,15 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
         <div className="flex gap-3 pt-2">
           <Button
             type="submit"
-            disabled={!isFormValid || isLoading}
+            disabled={!isFormValid || isBusy}
             className="flex-1 text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            {isLoading ? (
+            {isBusy ? (
               <div className="flex items-center gap-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                {mode === 'unlock' ? 'Unlocking...' : 
-                 mode === 'create' ? 'Creating...' : 'Changing...'}
+                {emailCodeLoading ? 'Checking...' :
+                 mode === 'unlock' ? 'Unlocking...' :
+                 mode === 'create' ? 'Creating...' : 'Updating...'}
               </div>
             ) : (
               <>
@@ -281,33 +384,19 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
               </>
             )}
           </Button>
-          
           {onCancel && (
             <Button
               type="button"
-              variant="outline"
               onClick={onCancel}
-              disabled={isLoading}
-              className="bg-transparent border-[#333] hover:bg-[#fff] cursor-pointer"
+              disabled={isBusy}
+              className="bg-transparent text-muted-foreground border border-border hover:bg-secondary"
             >
               Cancel
             </Button>
           )}
+          
         </div>
       </form>
-
-      {/* Security Notice */}
-      {mode === 'create' && (
-        <div className="p-3 bg-transparent border border-blue-500/30 rounded-lg">
-          <p className="text-blue-400 text-xs flex items-start gap-2">
-            <Shield className="h-4 w-4 mt-0.5 flex-shrink-0" />
-            <span>
-              Your password encrypts your private keys locally. Make sure to remember it - 
-              it cannot be recovered if lost. Consider using a password manager.
-            </span>
-          </p>
-        </div>
-      )}
     </div>
   );
 };

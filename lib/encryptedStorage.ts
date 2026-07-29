@@ -3,11 +3,15 @@
  * Provides secure storage for private keys and mnemonics with passphrase encryption
  */
 
-import * as CryptoJS from 'crypto-js';
+import CryptoJS from 'crypto-js';
 
 export interface EncryptedWalletData {
   encryptedMnemonic: string;
   encryptedPrivateKey: string;
+  bitcoinAddress?: string;
+  rootstockAddress?: string;
+  liquidAddress?: string;
+  nostrPublicKey?: string;
   address: string;
   label: string;
   salt: string;
@@ -20,9 +24,48 @@ export interface EncryptedWalletData {
 export interface WalletData {
   mnemonic: string;
   privateKey: string;
+  bitcoinAddress?: string;
+  rootstockAddress?: string;
+  liquidAddress?: string;
+  nostrPublicKey?: string;
   address: string;
   label: string;
 }
+
+export type EncryptedWalletErrorCode =
+  | 'not_found'
+  | 'corrupt_data'
+  | 'decrypt_failed'
+  | 'missing_private_key';
+
+export class EncryptedWalletError extends Error {
+  code: EncryptedWalletErrorCode;
+
+  constructor(code: EncryptedWalletErrorCode, message: string) {
+    super(message);
+    this.name = 'EncryptedWalletError';
+    this.code = code;
+  }
+}
+
+export type WalletAddressUpdates = Partial<Pick<WalletData, 'bitcoinAddress' | 'rootstockAddress' | 'liquidAddress' | 'nostrPublicKey'>>;
+
+export interface PortableEncryptedWalletData {
+  encryptedMnemonic: string;
+  encryptedPrivateKey: string;
+  bitcoinAddress?: string;
+  rootstockAddress?: string;
+  liquidAddress?: string;
+  nostrPublicKey?: string;
+  address: string;
+  label: string;
+  salt: string;
+  iv: string;
+  version?: string;
+}
+
+// Backward-compatible name used by the existing account persistence endpoint.
+export const createPortableEncryptedWallet = createPortableEncryptedWalletData;
 
 export interface SessionConfig {
   sessionTimeout: number; // in minutes
@@ -91,6 +134,39 @@ function decryptData(encryptedData: string, key: string, iv: string): string {
   return decrypted.toString(CryptoJS.enc.Utf8);
 }
 
+function buildEncryptedWalletData(walletData: WalletData, passphrase: string): EncryptedWalletData {
+  const salt = generateSalt();
+  const iv = generateIV();
+  const key = deriveKey(passphrase, salt);
+  const encryptedMnemonic = encryptData(walletData.mnemonic, key, iv);
+  const encryptedPrivateKey = encryptData(walletData.privateKey, key, iv);
+  const timestamp = Date.now();
+
+  return {
+    encryptedMnemonic,
+    encryptedPrivateKey,
+    bitcoinAddress: walletData.bitcoinAddress,
+    rootstockAddress: walletData.rootstockAddress,
+    liquidAddress: walletData.liquidAddress,
+    nostrPublicKey: walletData.nostrPublicKey,
+    address: walletData.address,
+    label: walletData.label,
+    salt,
+    iv,
+    createdAt: timestamp,
+    lastAccessed: timestamp,
+    version: CURRENT_VERSION,
+  };
+}
+
+/** Build a server-portable encrypted wallet without writing secrets to storage. */
+export function createPortableEncryptedWalletData(
+  walletData: WalletData,
+  passphrase: string
+): PortableEncryptedWalletData {
+  return toPortableEncryptedWalletData(buildEncryptedWalletData(walletData, passphrase));
+}
+
 /**
  * Validate passphrase strength
  */
@@ -146,25 +222,7 @@ export async function storeEncryptedWallet(
     throw new Error(`Weak passphrase: ${feedback.join(', ')}`);
   }
 
-  const salt = generateSalt();
-  const iv = generateIV();
-  const key = deriveKey(passphrase, salt);
-
-  // Encrypt sensitive data
-  const encryptedMnemonic = encryptData(walletData.mnemonic, key, iv);
-  const encryptedPrivateKey = encryptData(walletData.privateKey, key, iv);
-
-  const encryptedWalletData: EncryptedWalletData = {
-    encryptedMnemonic,
-    encryptedPrivateKey,
-    address: walletData.address, // Address is public, no need to encrypt
-    label: walletData.label,
-    salt,
-    iv,
-    createdAt: Date.now(),
-    lastAccessed: Date.now(),
-    version: CURRENT_VERSION,
-  };
+  const encryptedWalletData = buildEncryptedWalletData(walletData, passphrase);
 
   // Delete any previous session before creating a new one
   localStorage.removeItem(STORAGE_KEY);
@@ -177,7 +235,7 @@ export async function storeEncryptedWallet(
   localStorage.setItem(CONFIG_KEY, JSON.stringify(DEFAULT_CONFIG));
 
   // Dispatch event for UI updates
-  window.dispatchEvent(new Event('cholo-encrypted-session-created'));
+  window.dispatchEvent(new Event('bbox-encrypted-session-created'));
 }
 
 /**
@@ -190,11 +248,37 @@ export async function retrieveEncryptedWallet(passphrase: string): Promise<Walle
 
   const encryptedDataStr = localStorage.getItem(STORAGE_KEY);
   if (!encryptedDataStr) {
-    return null;
+    throw new EncryptedWalletError(
+      'not_found',
+      'No encrypted wallet is stored in this browser. Reconnect or restore your wallet before trying again.'
+    );
+  }
+
+  let encryptedData: EncryptedWalletData;
+  try {
+    encryptedData = JSON.parse(encryptedDataStr) as EncryptedWalletData;
+  } catch (error) {
+    console.error('Encrypted wallet data is not valid JSON:', error);
+    throw new EncryptedWalletError(
+      'corrupt_data',
+      'The saved wallet data is corrupted and cannot be read. Restore or reconnect your wallet.'
+    );
+  }
+
+  if (
+    !encryptedData ||
+    typeof encryptedData.encryptedMnemonic !== 'string' ||
+    typeof encryptedData.encryptedPrivateKey !== 'string' ||
+    typeof encryptedData.salt !== 'string' ||
+    typeof encryptedData.iv !== 'string'
+  ) {
+    throw new EncryptedWalletError(
+      'corrupt_data',
+      'The saved wallet data is incomplete. Restore or reconnect your wallet.'
+    );
   }
 
   try {
-    const encryptedData: EncryptedWalletData = JSON.parse(encryptedDataStr);
     const key = deriveKey(passphrase, encryptedData.salt);
 
     // Decrypt sensitive data
@@ -202,8 +286,25 @@ export async function retrieveEncryptedWallet(passphrase: string): Promise<Walle
     const privateKey = decryptData(encryptedData.encryptedPrivateKey, key, encryptedData.iv);
 
     // Verify decryption success (check if decrypted data looks valid)
-    if (!mnemonic || !privateKey) {
-      throw new Error('Decryption failed');
+    if (!mnemonic && !privateKey) {
+      throw new EncryptedWalletError(
+        'decrypt_failed',
+        'This password did not decrypt the saved wallet. If the password is correct, the local wallet data may be corrupted or from another wallet.'
+      );
+    }
+
+    if (!privateKey) {
+      throw new EncryptedWalletError(
+        'missing_private_key',
+        'Wallet unlocked, but no private key was stored for this local account. Restore or reconnect the wallet to generate receive addresses.'
+      );
+    }
+
+    if (!mnemonic) {
+      throw new EncryptedWalletError(
+        'corrupt_data',
+        'Wallet decrypted, but the recovery phrase is missing from local storage. Restore or reconnect your wallet.'
+      );
     }
 
     // Update last accessed time
@@ -211,17 +312,28 @@ export async function retrieveEncryptedWallet(passphrase: string): Promise<Walle
     localStorage.setItem(STORAGE_KEY, JSON.stringify(encryptedData));
 
     // Dispatch event for session activity
-    window.dispatchEvent(new Event('cholo-session-accessed'));
+    window.dispatchEvent(new Event('bbox-session-accessed'));
 
     return {
       mnemonic,
       privateKey,
+      bitcoinAddress: encryptedData.bitcoinAddress,
+      rootstockAddress: encryptedData.rootstockAddress,
+      liquidAddress: encryptedData.liquidAddress,
+      nostrPublicKey: encryptedData.nostrPublicKey,
       address: encryptedData.address,
       label: encryptedData.label,
     };
   } catch (error) {
+    if (error instanceof EncryptedWalletError) {
+      throw error;
+    }
+
     console.error('Failed to decrypt wallet data:', error);
-    throw new Error('Invalid passphrase or corrupted data');
+    throw new EncryptedWalletError(
+      'decrypt_failed',
+      'This password did not decrypt the saved wallet. If the password is correct, the local wallet data may be corrupted or from another wallet.'
+    );
   }
 }
 
@@ -236,7 +348,7 @@ export function hasEncryptedWallet(): boolean {
 /**
  * Get wallet info without decrypting
  */
-export function getWalletInfo(): { address: string; label: string; createdAt: number } | null {
+export function getWalletInfo(): { address: string; label: string; createdAt: number; bitcoinAddress?: string; rootstockAddress?: string; liquidAddress?: string; nostrPublicKey?: string } | null {
   if (typeof window === 'undefined') return null;
 
   const encryptedDataStr = localStorage.getItem(STORAGE_KEY);
@@ -247,6 +359,10 @@ export function getWalletInfo(): { address: string; label: string; createdAt: nu
     return {
       address: encryptedData.address,
       label: encryptedData.label,
+      bitcoinAddress: encryptedData.bitcoinAddress,
+      rootstockAddress: encryptedData.rootstockAddress,
+      liquidAddress: encryptedData.liquidAddress,
+      nostrPublicKey: encryptedData.nostrPublicKey,
       createdAt: encryptedData.createdAt,
     };
   } catch {
@@ -261,7 +377,7 @@ export function lockSession(): void {
   if (typeof window === 'undefined') return;
   
   localStorage.setItem(SESSION_LOCK_KEY, 'true');
-  window.dispatchEvent(new Event('cholo-session-locked'));
+  window.dispatchEvent(new Event('bbox-session-locked'));
 }
 
 /**
@@ -279,7 +395,7 @@ export function unlockSession(): void {
   if (typeof window === 'undefined') return;
   
   localStorage.removeItem(SESSION_LOCK_KEY);
-  window.dispatchEvent(new Event('cholo-session-unlocked'));
+  window.dispatchEvent(new Event('bbox-session-unlocked'));
 }
 
 /**
@@ -298,13 +414,8 @@ export function extendSession(): boolean {
     encryptedData.lastAccessed = Date.now();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(encryptedData));
     
-    console.log('Session extended:', {
-      address: encryptedData.address,
-      newLastAccessed: new Date(encryptedData.lastAccessed).toLocaleString()
-    });
-    
     // Dispatch event for session activity
-    window.dispatchEvent(new Event('cholo-session-accessed'));
+    window.dispatchEvent(new Event('bbox-session-accessed'));
     
     return true;
   } catch (error) {
@@ -331,21 +442,10 @@ export function isSessionExpired(): boolean {
     if (!config.autoLock) return false;
 
     const now = Date.now();
-    // Always use 60 minutes (1 hour) for expiration regardless of config
-    const timeoutMs = 60 * 60 * 1000;
+    const timeoutMinutes = typeof config.sessionTimeout === 'number' ? config.sessionTimeout : DEFAULT_CONFIG.sessionTimeout;
+    const timeoutMs = timeoutMinutes * 60 * 1000;
     const timeDiff = now - encryptedData.lastAccessed;
     const isExpired = timeDiff > timeoutMs;
-
-    // Debug logging
-    console.log('Session expiry check:', {
-      sessionTimeoutMinutes: 60,
-      timeoutMs,
-      lastAccessed: new Date(encryptedData.lastAccessed).toLocaleString(),
-      now: new Date(now).toLocaleString(),
-      timeDiffMs: timeDiff,
-      timeDiffMinutes: Math.round(timeDiff / (60 * 1000) * 100) / 100,
-      isExpired
-    });
 
     return isExpired;
   } catch {
@@ -374,7 +474,7 @@ export function updateSessionConfig(config: Partial<SessionConfig>): void {
   const newConfig = { ...currentConfig, ...config };
   localStorage.setItem(CONFIG_KEY, JSON.stringify(newConfig));
   
-  window.dispatchEvent(new Event('cholo-session-config-updated'));
+  window.dispatchEvent(new Event('bbox-session-config-updated'));
 }
 
 /**
@@ -394,7 +494,6 @@ export function resetSessionConfig(): void {
   if (typeof window === 'undefined') return;
   
   localStorage.setItem(CONFIG_KEY, JSON.stringify(DEFAULT_CONFIG));
-  console.log('Session config reset to default:', DEFAULT_CONFIG);
 }
 
 /**
@@ -410,7 +509,7 @@ export function deleteWallet(address: string) {
   localStorage.removeItem(`encrypted_wallet_${address}`);
   localStorage.removeItem(`wallet_config_${address}`);
 
-  window.dispatchEvent(new Event('cholo-session-deleted'));
+  window.dispatchEvent(new Event('bbox-session-deleted'));
 }
 
 /**
@@ -429,7 +528,108 @@ export async function changeWalletPassphrase(
   // Store with new passphrase
   await storeEncryptedWallet(walletData, newPassphrase);
   
-  window.dispatchEvent(new Event('cholo-passphrase-changed'));
+  window.dispatchEvent(new Event('bbox-passphrase-changed'));
+}
+
+export function getStoredEncryptedWallet(): EncryptedWalletData | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const encryptedDataStr = localStorage.getItem(STORAGE_KEY);
+  if (!encryptedDataStr) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(encryptedDataStr) as EncryptedWalletData;
+  } catch {
+    return null;
+  }
+}
+
+export function updateEncryptedWalletAddresses(updates: WalletAddressUpdates): WalletAddressUpdates {
+  if (typeof window === 'undefined') {
+    throw new Error('Storage is only available in browser environment');
+  }
+
+  const encryptedDataStr = localStorage.getItem(STORAGE_KEY);
+  if (!encryptedDataStr) {
+    throw new Error('No encrypted wallet found');
+  }
+
+  try {
+    const encryptedData: EncryptedWalletData = JSON.parse(encryptedDataStr);
+    const nextData: EncryptedWalletData = {
+      ...encryptedData,
+      ...updates,
+      lastAccessed: Date.now(),
+    };
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+
+    const sessionData = localStorage.getItem('cholo_session');
+    if (sessionData) {
+      try {
+        const session = JSON.parse(sessionData);
+        localStorage.setItem('cholo_session', JSON.stringify({
+          ...session,
+          bitcoinAddress: nextData.bitcoinAddress,
+          rootstockAddress: nextData.rootstockAddress,
+          liquidAddress: nextData.liquidAddress,
+          nostrPublicKey: nextData.nostrPublicKey,
+        }));
+      } catch {
+        // Session compatibility data is best-effort; the encrypted wallet remains the source of truth.
+      }
+    }
+
+    window.dispatchEvent(new Event('bbox-encrypted-wallet-updated'));
+    return updates;
+  } catch (error) {
+    console.error('Failed to update encrypted wallet addresses:', error);
+    throw new Error('Unable to update wallet addresses');
+  }
+}
+
+export function toPortableEncryptedWalletData(data: EncryptedWalletData): PortableEncryptedWalletData {
+  return {
+    encryptedMnemonic: data.encryptedMnemonic,
+    encryptedPrivateKey: data.encryptedPrivateKey,
+    bitcoinAddress: data.bitcoinAddress,
+    rootstockAddress: data.rootstockAddress,
+    liquidAddress: data.liquidAddress,
+    nostrPublicKey: data.nostrPublicKey,
+    address: data.address,
+    label: data.label,
+    salt: data.salt,
+    iv: data.iv,
+    version: data.version,
+  };
+}
+
+export function decryptPortableEncryptedWallet(
+  payload: PortableEncryptedWalletData,
+  passphrase: string
+): WalletData {
+  const key = deriveKey(passphrase, payload.salt);
+  const mnemonic = decryptData(payload.encryptedMnemonic, key, payload.iv);
+  const privateKey = decryptData(payload.encryptedPrivateKey, key, payload.iv);
+
+  if (!mnemonic || !privateKey) {
+    throw new Error('Failed to decrypt wallet data');
+  }
+
+  return {
+    mnemonic,
+    privateKey,
+    bitcoinAddress: payload.bitcoinAddress,
+    rootstockAddress: payload.rootstockAddress,
+    liquidAddress: payload.liquidAddress,
+    nostrPublicKey: payload.nostrPublicKey,
+    address: payload.address,
+    label: payload.label,
+  };
 }
 
 /**
@@ -454,22 +654,40 @@ export function tryRestoreSession(): WalletData | null {
     
     // Try to get session data from localStorage
     const sessionData = localStorage.getItem('cholo_session');
-    if (!sessionData) return null;
-    
-    const session = JSON.parse(sessionData);
-    if (!session.address || !session.encrypted) return null;
-    
-    // Get wallet info to verify it matches
-    const walletInfo = getWalletInfo();
-    if (!walletInfo || walletInfo.address !== session.address) return null;
-    
-    // Create minimal wallet data for UI (without sensitive data)
-    return {
-      mnemonic: '', // Don't expose sensitive data
-      privateKey: '', // Don't expose sensitive data  
-      address: session.address,
-      label: session.label || 'Encrypted Wallet',
-    };
+    if (sessionData) {
+      const session = JSON.parse(sessionData);
+      if (!session.address || !session.encrypted) return null;
+      
+      const walletInfo = getWalletInfo();
+      if (!walletInfo || walletInfo.address !== session.address) return null;
+      
+      return {
+        mnemonic: '',
+        privateKey: '',
+        bitcoinAddress: walletInfo.bitcoinAddress,
+        rootstockAddress: walletInfo.rootstockAddress,
+        liquidAddress: walletInfo.liquidAddress,
+        address: session.address,
+        label: session.label || 'Encrypted Wallet',
+      };
+    }
+
+    // Fallback: if a valid encrypted wallet exists and it is not locked, restore minimal session data from wallet info.
+    if (isSessionActive()) {
+      const walletInfo = getWalletInfo();
+      if (!walletInfo) return null;
+      return {
+        mnemonic: '',
+        privateKey: '',
+        bitcoinAddress: walletInfo.bitcoinAddress,
+        rootstockAddress: walletInfo.rootstockAddress,
+        liquidAddress: walletInfo.liquidAddress,
+        address: walletInfo.address,
+        label: walletInfo.label || 'Encrypted Wallet',
+      };
+    }
+
+    return null;
   } catch (error) {
     console.error('Failed to restore session:', error);
     return null;

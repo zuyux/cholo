@@ -95,10 +95,10 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
   return (
     <>
   {(isSessionLoggedIn || isWalletConnected || isEncryptedAuthenticated) ? (
-        <div className='fixed top-8 right-3 md:right-8 z-100'>
+        <div className='fixed top-[71px] right-4 md:right-9 z-100'>
           <button
             type="button"
-            className="w-9 h-9 border-1 border-[#555] bg-gradient-to-br from-muted to-muted-foreground/50 rounded-full overflow-hidden cursor-pointer select-none transition-all duration-200 flex items-center justify-center"
+            className="w-11 h-11 border border-[#c18b4e] bg-[#100d0c] rounded-none overflow-hidden cursor-pointer select-none transition-all duration-200 flex items-center justify-center hover:bg-[#b7132f]"
             onClick={() => setShowUserModal(true)}
             aria-label="Profile"
           >
@@ -134,10 +134,10 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
           {showUserModal && <UserModal onClose={() => setShowUserModal(false)} />}
         </div>
       ) : (
-        <div className='fixed top-7 right-4 md:right-8 z-100'>
+        <div className='fixed top-[64px] right-4 md:right-9 z-100'>
           <Button
             onClick={() => setShowGetInModal(true)}
-            className="title rounded-full px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm bg-foreground hover:bg-accent-foreground text-background cursor-pointer select-none"
+            className="title h-[53px] rounded-none border border-[#b7132f] px-5 md:px-7 text-[11px] tracking-[0.12em] bg-[#b7132f] hover:bg-[#faeed5] hover:text-[#b7132f] text-[#faeed5] cursor-pointer select-none"
             {...buttonProps}
           >
             {children || 'ENTRAR'}

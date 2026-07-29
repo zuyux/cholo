@@ -57,7 +57,7 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
         };
         await createEncryptedWallet(walletData, password);
         
-        // Save to Supabase if email provided
+        // Save to Supabase if email provided using the same pattern as Bbox.
         if (email) {
           try {
             console.log('Attempting to save account to database...');
@@ -68,9 +68,12 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
               },
               body: JSON.stringify({
                 email,
-                passkey: stxPrivateKey, 
                 password,
-                address
+                walletData: {
+                  stxPrivateKey,
+                  address,
+                  mnemonic,
+                },
               }),
             });
             
@@ -79,14 +82,12 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
             if (!response.ok) {
               console.warn('Failed to save account to database:', result);
               console.warn('Account creation will continue without database save');
-              // Don't throw error - continue with wallet creation even if DB save fails
             } else {
               console.log('Account saved to database successfully:', result);
             }
           } catch (dbError) {
             console.warn('Database save error:', dbError);
             console.warn('Account creation will continue without database save');
-            // Don't throw error - continue with wallet creation even if DB save fails
           }
 
           // Send confirmation email with address
@@ -194,7 +195,6 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
                 isLoading={encryptedLoading}
                 error={encryptedAuthError}
                 showStrengthIndicator={encryptedWalletMode === 'create'}
-                confirmRequired={encryptedWalletMode === 'create'}
                 onCancel={() => setShowEncryptedWalletFlow(false)}
               />
 
@@ -276,4 +276,3 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
     </div>
   );
 }
-

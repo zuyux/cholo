@@ -164,7 +164,7 @@ export async function uploadFileToPinata(
  * Get IPFS URL from CID
  */
 export function getIPFSUrl(cid: string): string {
-  const gatewayUrl = process.env.PINATA_GATEWAY_URL || 'https://gateway.pinata.cloud';
+  const gatewayUrl = process.env.PINATA_GATEWAY_URL || 'https://ipfs.io';
   return `${gatewayUrl}/ipfs/${cid}`;
 }
 
@@ -172,7 +172,7 @@ export function getIPFSUrl(cid: string): string {
  * Get optimized IPFS URL from CID with query parameters
  */
 export function getOptimizedIPFSUrl(cid: string, width?: number, height?: number, quality?: number): string {
-  const gatewayUrl = process.env.PINATA_GATEWAY_URL || 'https://gateway.pinata.cloud';
+  const gatewayUrl = process.env.PINATA_GATEWAY_URL || 'https://ipfs.io';
   const baseUrl = `${gatewayUrl}/ipfs/${cid}`;
   const params = new URLSearchParams();
   

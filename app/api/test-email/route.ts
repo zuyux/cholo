@@ -33,9 +33,9 @@ export async function POST(request: NextRequest) {
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
       to: [email],
-      subject: 'Kapu Wallet - Test Email',
+      subject: 'Cholo Wallet - Test Email',
       html: `
-        <h1>Test Email from Kapu Wallet</h1>
+        <h1>Test Email from Cholo Wallet</h1>
         <p>This is a test email to verify the email configuration is working correctly.</p>
         <p>If you received this email, the Resend integration is working!</p>
       `,

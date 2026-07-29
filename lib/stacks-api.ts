@@ -4,18 +4,23 @@ import { Network } from '@/lib/network';
 
 type HTTPHeaders = Record<string, string>;
 
-export function isDevnetEnvironment(): boolean {
-  return process.env.NODE_ENV === 'development' && 
-         process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet';
+export function isDevnetEnvironment(network?: Network): boolean {
+  if (network) {
+    return network === 'devnet';
+  }
+  return process.env.NODE_ENV === 'development' &&
+         process.env.NEXT_PUBLIC_STACKS_NETWORK === 'devnet';
 }
 
 export function isTestnetEnvironment(network?: Network): boolean {
-  return network === 'testnet' || 
-         process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet';
+  if (network) {
+    return network === 'testnet';
+  }
+  return process.env.NEXT_PUBLIC_STACKS_NETWORK === 'testnet';
 }
 
 export function getApiUrl(network: Network) {
-  if (isDevnetEnvironment()) {
+  if (isDevnetEnvironment(network)) {
     return DEVNET_STACKS_BLOCKCHAIN_API_URL || 'http://localhost:3999';
   }
   if (isTestnetEnvironment(network)) {

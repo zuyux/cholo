@@ -46,18 +46,14 @@ export function AppLoadingProvider({
     try {
       // Load critical assets for app initialization
       const criticalAssets = [
-        '/loader.gif',
-        '/loaderb.gif',
-        '/home.svg',
-        '/4V4-DIY.svg',
-        '/4V4-DIY.png'
+        '/cholo/cholo-hero.png',
+        '/cholo/gallery-1.png',
+        '/cholo/gallery-11.png',
       ];
 
       // Load home page assets as well since it's the landing page
       const homeAssets = AssetPreloader.getPageAssets('home');
-      const modelAssets = ['/models/default.glb'];
-      
-      const allAssets = [...criticalAssets, ...homeAssets, ...modelAssets];
+      const allAssets = [...criticalAssets, ...homeAssets];
 
       await preloader.preloadAssets(allAssets, {
         timeout: 8000, // Longer timeout for 3D models
@@ -66,9 +62,6 @@ export function AppLoadingProvider({
         }
       });
 
-      // Additional delay to ensure smooth loading experience
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
     } catch (error) {
       console.warn('App initialization completed with some errors:', error);
     }

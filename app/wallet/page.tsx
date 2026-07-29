@@ -1,215 +1,1409 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { retrieveEncryptedWallet } from "@/lib/encryptedStorage";
-import { useCurrentAddress } from '@/hooks/useCurrentAddress';
 
-// Extend the Window interface to include StacksProvider
-declare global {
-  interface Window {
-    StacksProvider?: unknown;
+
+import { LocalizedText } from "@/components/LocalizedText";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { getStoredEncryptedWallet, retrieveEncryptedWallet, updateEncryptedWalletAddresses, type WalletData } from "@/lib/encryptedStorage";
+import { getBitcoinAddressFromPrivateKey, getLiquidAddressFromPrivateKey, getRootstockAddressFromPrivateKey } from "@/lib/bitcoinWallet";
+import { useCurrentAddress } from '@/hooks/useCurrentAddress';
+import { PasswordSigningModal } from "@/components/PasswordSigningModal";
+import { PasswordInput } from "@/components/PasswordInput";
+import { useEncryptedWallet } from "@/components/EncryptedWalletProvider";
+import { request as satsRequest } from 'sats-connect';
+import { persistCachedWalletState, useWallet } from "@/components/WalletProvider";
+import { sendBitcoinWithKey } from "@/lib/bitcoinTransfer";
+import { parseLiquidAmount, sendLiquidWithKey } from "@/lib/liquidTransfer";
+import { fetchBitcoinBalance, fetchLiquidBalance, fetchRootstockBalance, type NativeBalance } from "@/lib/nativeBalances";
+import { parseRbtcAmount, sendRootstockWithKey } from "@/lib/rootstockTransfer";
+import { createStacksAccount } from "@/lib/stacksWallet";
+
+const STACKS_ADDRESS_REGEX = /^(SP|SM|SN|ST|SU|TP|TM|TN|TS)[A-Za-z0-9]{30,40}$/i;
+const BITCOIN_MAINNET_ADDRESS_REGEX = /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,90}$/i;
+const BITCOIN_TESTNET_ADDRESS_REGEX = /^(tb1|[mn2])[a-zA-HJ-NP-Z0-9]{25,90}$/i;
+const LIQUID_MAINNET_ADDRESS_REGEX = /^ex1[a-z0-9]{20,120}$/i;
+const LIQUID_TESTNET_ADDRESS_REGEX = /^ert1[a-z0-9]{20,120}$/i;
+const EVM_ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
+const MAX_MEMO_BYTES = 34;
+const SATS_PER_BTC = 100_000_000;
+
+type ReceiveLayer = 'bitcoin' | 'rootstock' | 'liquid';
+type ReceiveAsset = ReceiveLayer | 'stacks';
+type SendAsset = 'bitcoin' | 'sbtc' | 'rootstock' | 'liquid';
+type ReceiveAddressPayload = {
+  address: string;
+  bitcoinAddress?: string;
+  rootstockAddress?: string;
+  liquidAddress?: string;
+};
+type LightningBalanceState = {
+  display: string;
+  status: 'idle' | 'loading' | 'available' | 'unavailable';
+};
+type BalanceCapableWebLN = {
+  enable?: () => Promise<void>;
+  getBalance?: () => Promise<{ balance?: number; currency?: string }>;
+};
+
+const RECEIVE_LAYER_LABELS: Record<ReceiveLayer, string> = {
+  bitcoin: 'Bitcoin',
+  rootstock: 'Rootstock',
+  liquid: 'Liquid',
+};
+
+async function saveReceiveAddressesToSupabase(payload: ReceiveAddressPayload) {
+  const response = await fetch('/api/wallet/addresses', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.details || body?.error || 'Failed to save receive addresses to Supabase');
   }
 }
 
-import { getSigningNetwork } from "@/lib/encryptedWalletSigning";
-import { makeSTXTokenTransfer, broadcastTransaction } from "@stacks/transactions";
-import { getApiUrl } from "@/lib/stacks-api";
-import { getPersistedNetwork } from "@/lib/network";
+const RECEIVE_ASSET_LABELS: Record<ReceiveAsset, string> = {
+  bitcoin: 'Bitcoin L1',
+  stacks: 'Stacks',
+  rootstock: 'Rootstock',
+  liquid: 'Liquid',
+};
 
-import { Copy, X, LoaderCircle, Wallet } from "lucide-react";
+const SEND_ASSETS: Array<{
+  id: SendAsset;
+  label: string;
+  networkLabel: string;
+  unit: string;
+  placeholder: string;
+  recipientHint: string;
+  supported: boolean;
+  requiresExtension?: boolean;
+}> = [
+  {
+    id: 'bitcoin',
+    label: 'BTC',
+    networkLabel: 'Bitcoin',
+    unit: 'BTC',
+    placeholder: 'bc1...',
+    recipientHint: 'Use a Bitcoin L1 address.',
+    supported: true,
+    requiresExtension: true,
+  },
+  {
+    id: 'sbtc',
+    label: 'Stacks Network',
+    networkLabel: 'Stacks',
+    unit: 'sBTC',
+    placeholder: 'SP3FBR2K...',
+    recipientHint: 'Use a Stacks address for sBTC on Stacks.',
+    supported: true,
+  },
+  {
+    id: 'rootstock',
+    label: 'Rootstock Network',
+    networkLabel: 'Rootstock',
+    unit: 'RBTC',
+    placeholder: '0x...',
+    recipientHint: 'Use a Rootstock EVM address.',
+    supported: true,
+  },
+  {
+    id: 'liquid',
+    label: 'Liquid Network',
+    networkLabel: 'Liquid',
+    unit: 'L-BTC',
+    placeholder: 'ex1...',
+    recipientHint: 'Use a Liquid address.',
+    supported: true,
+  },
+];
+
+const FEATURED_TOKEN_CONTRACTS = new Set([
+  'SP193GXQTNHVV9WSAPHAB89M6R9QSEXZKS3774CMD::cholo',
+]);
+
+const FEATURED_TOKEN_SYMBOLS = new Set([
+  'cholo',
+]);
+
+const formatQuickFillAmount = (value: number) => {
+  if (!Number.isFinite(value) || value <= 0) {
+    return '';
+  }
+  const normalized = value >= 1 ? Number(value.toFixed(6)) : Number(value.toPrecision(6));
+  return normalized.toString();
+};
+
+const formatCompactBalance = (value: number) => {
+  if (!Number.isFinite(value)) {
+    return '--';
+  }
+  return value >= 1
+    ? value.toLocaleString(undefined, { maximumFractionDigits: 6 })
+    : value.toPrecision(4);
+};
+
+const EMPTY_NATIVE_BALANCE: NativeBalance = {
+  value: null,
+  display: '--',
+};
+
+const ZERO_BTC_NATIVE_BALANCE: NativeBalance = {
+  value: 0,
+  display: '0.00 BTC',
+};
+
+const BALANCE_FETCH_TIMEOUT_MS = 2500;
+const OKX_ACCOUNTS_TIMEOUT_MS = 1200;
+
+const formatAssetCardBalance = (balance: NativeBalance) => {
+  if (balance.display === 'Loading...') return balance.display;
+  if (balance.value === null) return '--';
+  if (balance.value === 0) return '0.00';
+  return balance.value >= 1
+    ? balance.value.toLocaleString(undefined, { maximumFractionDigits: 8 })
+    : balance.value.toLocaleString(undefined, { maximumFractionDigits: 8, minimumFractionDigits: 1 });
+};
+
+const formatStacksAssetCardBalance = (value: string | undefined) => {
+  const parsed = Number(String(value ?? '0').replace(/,/g, ''));
+  if (!Number.isFinite(parsed) || parsed === 0) return '0.00';
+  return parsed >= 1
+    ? parsed.toLocaleString(undefined, { maximumFractionDigits: 6, minimumFractionDigits: 2 })
+    : parsed.toLocaleString(undefined, { maximumFractionDigits: 6, minimumFractionDigits: 2 });
+};
+
+function BalanceDisplay({
+  loading,
+  unavailable,
+  onRefresh,
+  refreshLabel = 'Refresh balance',
+  children,
+  className = 'text-lg font-semibold',
+}: {
+  loading: boolean;
+  unavailable?: boolean;
+  onRefresh?: () => void;
+  refreshLabel?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <span className={`inline-flex min-h-[1.5em] items-center justify-end ${className}`}>
+      {loading ? (
+        <LoaderCircle className="animate-spin text-foreground" size={18} />
+      ) : unavailable && onRefresh ? (
+        <button
+          type="button"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-border bg-transparent text-foreground transition hover:bg-muted"
+          onClick={(event) => {
+            event.stopPropagation();
+            onRefresh();
+          }}
+          aria-label={refreshLabel}
+          title={refreshLabel}
+        >
+          <RefreshCw size={14} />
+        </button>
+      ) : (
+        children
+      )}
+    </span>
+  );
+}
+
+function CreatePasskeyAddressModal({
+  isOpen,
+  title,
+  description,
+  error,
+  isLoading,
+  onClose,
+  onSubmit,
+}: {
+  isOpen: boolean;
+  title: string;
+  description: string;
+  error: string | null;
+  isLoading: boolean;
+  onClose: () => void;
+  onSubmit: (password: string, email?: string, verifiedEmailToken?: string) => Promise<void>;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 mx-4 w-full max-w-md rounded-lg border border-black/10 bg-white p-6 shadow-xl dark:border-white/10 dark:bg-black">
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/10 dark:bg-white/10">
+              <Wallet className="h-5 w-5 text-black dark:text-white" />
+            </div>
+            <h3 className="text-lg font-semibold text-black dark:text-white">{title}</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isLoading}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-black hover:bg-black/10 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white dark:hover:bg-white/10"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mb-6 text-sm text-black/70 dark:text-white/70">{description}</p>
+        <PasswordInput
+          mode="create"
+          onSubmit={onSubmit}
+          isLoading={isLoading}
+          error={error}
+          placeholder={"Create a wallet password"}
+          showStrengthIndicator
+          onCancel={onClose}
+        />
+        <div className="mt-4 text-center text-xs text-black/50 dark:text-white/50">
+          <LocalizedText>Your password encrypts the new wallet locally and is never sent to our servers.
+        </LocalizedText></div>
+      </div>
+    </div>
+  );
+}
+
+const isValidBitcoinAddress = (value: string, network: 'mainnet' | 'testnet' | 'devnet') => {
+  const normalized = value.trim();
+  if (!normalized) return false;
+  return network === 'mainnet'
+    ? BITCOIN_MAINNET_ADDRESS_REGEX.test(normalized)
+    : BITCOIN_TESTNET_ADDRESS_REGEX.test(normalized);
+};
+
+const isValidLiquidAddress = (value: string, network: 'mainnet' | 'testnet' | 'devnet') => {
+  const normalized = value.trim();
+  if (!normalized) return false;
+  return network === 'mainnet'
+    ? LIQUID_MAINNET_ADDRESS_REGEX.test(normalized)
+    : LIQUID_TESTNET_ADDRESS_REGEX.test(normalized);
+};
+
+const btcToSats = (value: string) => {
+  const trimmed = value.trim();
+  if (!/^\d+(\.\d{1,8})?$/.test(trimmed)) {
+    return null;
+  }
+  const [whole, fraction = ''] = trimmed.split('.');
+  const wholeSats = BigInt(whole) * BigInt(SATS_PER_BTC);
+  const fractionalSats = BigInt(fraction.padEnd(8, '0'));
+  const total = wholeSats + fractionalSats;
+  if (total > BigInt(Number.MAX_SAFE_INTEGER)) {
+    return null;
+  }
+  return Number(total);
+};
+
+const abbreviateAddress = (value: string, chars = 5) => {
+  if (!value) {
+    return '';
+  }
+  if (value.length <= chars * 2 + 3) {
+    return value;
+  }
+  return `${value.slice(0, chars)}...${value.slice(-chars)}`;
+};
+
+const abbreviateMiddle = (value: string, start = 6, end = 4) => {
+  if (!value) return '';
+  if (value.length <= start + end + 3) return value;
+  return `${value.slice(0, start)}...${value.slice(-end)}`;
+};
+
+const formatLightningBalance = (balance: number, currency?: string) => {
+  const normalizedCurrency = (currency || 'sats').toLowerCase();
+  const sats = normalizedCurrency === 'msat' || normalizedCurrency === 'msats'
+    ? balance / 1000
+    : balance;
+
+  if (!Number.isFinite(sats)) {
+    return '--';
+  }
+
+  return `${sats.toLocaleString(undefined, { maximumFractionDigits: 0 })} sats`;
+};
+
+class TimeoutError extends Error {
+  constructor() {
+    super('Request timed out');
+    this.name = 'TimeoutError';
+  }
+}
+
+const isTimeoutError = (error: unknown) => error instanceof TimeoutError;
+
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new TimeoutError()), timeoutMs);
+    }),
+  ]);
+};
+
+const createTimedAbortController = (timeoutMs: number) => {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  return { controller, timeoutId };
+};
+
+async function copyToClipboard(value: string): Promise<boolean> {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch (error) {
+    console.warn('Clipboard API copy failed, trying fallback:', error);
+  }
+
+  try {
+    if (typeof document === 'undefined') return false;
+
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.width = '1px';
+    textarea.style.height = '1px';
+    textarea.style.opacity = '0';
+    textarea.style.pointerEvents = 'none';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, value.length);
+    const copied = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return copied;
+  } catch (error) {
+    console.warn('Fallback copy failed:', error);
+    return false;
+  }
+}
+
+// Extend the Window interface to include StacksProvider and Xverse provider helpers
+declare global {
+  interface Window {
+    LeatherProvider?: unknown;
+  }
+}
+
+import { getApiUrl } from "@/lib/stacks-api";
+import { getPersistedNetwork, inferNetworkFromAddress, persistNetwork, type Network } from "@/lib/network";
+import { getSBTCContract } from "@/lib/contracts";
+import { getWalletErrorMessage, isWalletRequestCancelled } from '@/lib/walletErrors';
+import { sendSbtcDonation, sendSbtcDonationWithKey } from "@/lib/bbox-contract";
+
+import { Copy, X, LoaderCircle, RefreshCw, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { fetchRecentTransactions } from "@/lib/fetchRecentTransactions";
+import Image from "next/image";
+import { getProfile } from "@/lib/profileApi";
+import { getOkxBitcoinAccounts, type OkxBitcoinAccount } from "@/lib/okxWallet";
+import { BitflowSwapPanel } from "@/features/swaps/components/BitflowSwapPanel";
 
 export default function WalletPage() {
   const address = useCurrentAddress() || "";
-  const [choloBalance, setCholoBalance] = useState<string | null>(null);
+  const { walletType, setAddress, setWalletType } = useWallet();
+  const { createEncryptedWallet } = useEncryptedWallet();
+  const isNostrLightningAccount = walletType === 'alby' || walletType === 'nostria' || address.startsWith('npub');
+  const isOkxBitcoinAccount = walletType === 'okx';
+  const isBitcoinOnlyAccount = walletType === 'okx';
+  const [sbtcBalance, setSbtcBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lightningBalance, setLightningBalance] = useState<LightningBalanceState>({
+    display: '--',
+    status: 'idle',
+  });
+  const [profileLightningAddress, setProfileLightningAddress] = useState<string | null>(null);
+  const [currentNetwork, setCurrentNetwork] = useState<Network>(() => getPersistedNetwork());
+  const sbtcContractId = useMemo(() => getSBTCContract(currentNetwork), [currentNetwork]);
+
+  type WalletAsset = {
+    id: string;
+    name: string;
+    symbol: string;
+    formattedBalance: string;
+    rawBalance: string;
+    type: 'stx' | 'fungible';
+  };
+
+  const [assets, setAssets] = useState<WalletAsset[]>([]);
+  const [assetsLoading, setAssetsLoading] = useState(true);
+  const [btcAddress, setBtcAddress] = useState<string | null>(null);
+  const [btcAddressLoading, setBtcAddressLoading] = useState(false);
+  const [btcAddressError, setBtcAddressError] = useState<string | null>(null);
+  const [okxBitcoinAccounts, setOkxBitcoinAccounts] = useState<OkxBitcoinAccount[]>([]);
+  const [selectedOkxBitcoinAddress, setSelectedOkxBitcoinAddress] = useState<string | null>(null);
+  const [rskAddress, setRskAddress] = useState<string | null>(null);
+  const [liquidAddress, setLiquidAddress] = useState<string | null>(null);
+  const [btcBalance, setBtcBalance] = useState<NativeBalance>(EMPTY_NATIVE_BALANCE);
+  const [rskBalance, setRskBalance] = useState<NativeBalance>(EMPTY_NATIVE_BALANCE);
+  const [liquidBalance, setLiquidBalance] = useState<NativeBalance>(EMPTY_NATIVE_BALANCE);
+  const [btcBalanceLoading, setBtcBalanceLoading] = useState(false);
+  const [rskBalanceLoading, setRskBalanceLoading] = useState(false);
+  const [liquidBalanceLoading, setLiquidBalanceLoading] = useState(false);
+  const [stacksBalanceRefreshKey, setStacksBalanceRefreshKey] = useState(0);
+  const [btcBalanceRefreshKey, setBtcBalanceRefreshKey] = useState(0);
+  const [rskBalanceRefreshKey, setRskBalanceRefreshKey] = useState(0);
+  const [liquidBalanceRefreshKey, setLiquidBalanceRefreshKey] = useState(0);
+  const [showGenerateAddressesModal, setShowGenerateAddressesModal] = useState(false);
+  const [generatingAddresses, setGeneratingAddresses] = useState(false);
+  const [generateAddressLayer, setGenerateAddressLayer] = useState<ReceiveLayer | null>(null);
+  const [generateAddressAuthMode, setGenerateAddressAuthMode] = useState<'unlock' | 'create'>('unlock');
+  const [createPasskeyError, setCreatePasskeyError] = useState<string | null>(null);
+
+  const formatTokenBalance = useCallback((balance: string, decimals = 0) => {
+    if (!balance) return '0';
+    try {
+      if (decimals > 0) {
+        const divisor = Math.pow(10, decimals);
+        const value = Number(balance) / divisor;
+        if (!Number.isFinite(value)) return balance;
+        return value >= 1
+          ? value.toLocaleString(undefined, { maximumFractionDigits: 4 })
+          : value.toPrecision(4);
+      }
+      return Number(balance).toLocaleString();
+    } catch (error) {
+      console.warn('Failed to format token balance', { balance, decimals, error });
+      return balance;
+    }
+  }, []);
 
   // Modal states
   const [showReceive, setShowReceive] = useState(false);
+  const [receiveAsset, setReceiveAsset] = useState<ReceiveAsset>('bitcoin');
   const [showSend, setShowSend] = useState(false);
+  const [showSwap, setShowSwap] = useState(false);
   const [sendTo, setSendTo] = useState("");
   const [sendAmount, setSendAmount] = useState("");
   const [sendPassword, setSendPassword] = useState("");
   const [sendLoading, setSendLoading] = useState(false);
+  const [sendMemo, setSendMemo] = useState("");
+  const [sendAsset, setSendAsset] = useState<SendAsset>('bitcoin');
   const [extensionAvailable, setExtensionAvailable] = useState(false);
+  const refreshStacksBalance = useCallback(() => setStacksBalanceRefreshKey((key) => key + 1), []);
+  const refreshBtcBalance = useCallback(() => setBtcBalanceRefreshKey((key) => key + 1), []);
+  const refreshRskBalance = useCallback(() => setRskBalanceRefreshKey((key) => key + 1), []);
+  const refreshLiquidBalance = useCallback(() => setLiquidBalanceRefreshKey((key) => key + 1), []);
+  const refreshSelectedSendAssetBalance = useCallback(() => {
+    if (sendAsset === 'bitcoin') {
+      setBtcBalanceRefreshKey((key) => key + 1);
+      return;
+    }
+    if (sendAsset === 'rootstock') {
+      setRskBalanceRefreshKey((key) => key + 1);
+      return;
+    }
+    if (sendAsset === 'liquid') {
+      setLiquidBalanceRefreshKey((key) => key + 1);
+      return;
+    }
+    setStacksBalanceRefreshKey((key) => key + 1);
+  }, [sendAsset]);
+
+  const selectedSendAsset = SEND_ASSETS.find((asset) => asset.id === sendAsset) ?? SEND_ASSETS[0];
+  const trimmedRecipient = sendTo.trim();
+  const parsedAmount = Number(sendAmount);
+  const recipientError = (() => {
+    if (!trimmedRecipient) return undefined;
+    if (sendAsset === 'sbtc' && !STACKS_ADDRESS_REGEX.test(trimmedRecipient)) {
+      return 'Enter a valid Stacks address for sBTC.';
+    }
+    if (sendAsset === 'bitcoin' && !isValidBitcoinAddress(trimmedRecipient, currentNetwork)) {
+      return currentNetwork === 'mainnet'
+        ? 'Enter a valid Bitcoin mainnet address.'
+        : 'Enter a valid Bitcoin testnet address.';
+    }
+    if (sendAsset === 'rootstock' && !EVM_ADDRESS_REGEX.test(trimmedRecipient)) {
+      return 'Enter a valid Rootstock EVM address.';
+    }
+    if (sendAsset === 'liquid' && !isValidLiquidAddress(trimmedRecipient, currentNetwork)) {
+      return currentNetwork === 'mainnet'
+        ? 'Enter a valid unconfidential Liquid mainnet address.'
+        : 'Enter a valid unconfidential Liquid testnet address.';
+    }
+    return undefined;
+  })();
+  const amountError = sendAmount
+    ? (!Number.isFinite(parsedAmount) || parsedAmount <= 0
+      ? `Enter a valid ${selectedSendAsset.unit} amount`
+      : sendAsset === 'sbtc' && (!Number.isInteger(parsedAmount) || parsedAmount < 1)
+        ? 'Enter at least 1 satoshi'
+        : sendAsset === 'bitcoin' && btcToSats(sendAmount) === null
+          ? 'Enter a BTC amount with up to 8 decimal places'
+        : sendAsset === 'rootstock' && parseRbtcAmount(sendAmount) === null
+          ? 'Enter an RBTC amount with up to 18 decimal places'
+        : sendAsset === 'liquid' && parseLiquidAmount(sendAmount) === null
+          ? 'Enter an L-BTC amount with up to 8 decimal places'
+        : undefined)
+    : undefined;
+  const unsupportedSendAssetMessage = selectedSendAsset.supported
+    ? undefined
+    : `${selectedSendAsset.label} sends need chain-specific signing and broadcasting support before they can be enabled.`;
+  const isLocalWallet = walletType === 'imported';
+  const selectedAssetNeedsPassword = (sendAsset === 'sbtc' && !extensionAvailable) || (sendAsset === 'bitcoin' && isLocalWallet) || sendAsset === 'rootstock' || sendAsset === 'liquid';
+  const selectedAssetCanUseCurrentSigner = sendAsset === 'bitcoin'
+    ? !isLocalWallet || !!sendPassword
+    : sendAsset === 'sbtc'
+      ? extensionAvailable || !!sendPassword
+      : sendAsset === 'rootstock'
+        ? isLocalWallet && !!sendPassword
+      : sendAsset === 'liquid'
+        ? isLocalWallet && !!sendPassword
+      : false;
+  const supportsMemo = sendAsset === 'sbtc';
+  const memoByteLength = useMemo(() => new TextEncoder().encode(sendMemo || '').length, [sendMemo]);
+  const memoError = supportsMemo && memoByteLength > MAX_MEMO_BYTES ? `Memo must be ${MAX_MEMO_BYTES} bytes or fewer` : undefined;
+  const passwordError = selectedAssetNeedsPassword && sendPassword && sendPassword.length < 8
+    ? 'Password must be at least 8 characters'
+    : undefined;
+  const sendFormValid = Boolean(
+    trimmedRecipient &&
+    sendAmount &&
+    selectedSendAsset.supported &&
+    selectedAssetCanUseCurrentSigner &&
+    !recipientError &&
+    !amountError &&
+    !memoError &&
+    (!selectedAssetNeedsPassword || (!!sendPassword && !passwordError))
+  );
+
+  const availableBalanceValue = useMemo(() => {
+    if (sendAsset === 'bitcoin') {
+      return btcBalance.value ?? 0;
+    }
+    if (sendAsset === 'rootstock') {
+      return rskBalance.value ?? 0;
+    }
+    if (sendAsset === 'liquid') {
+      return liquidBalance.value ?? 0;
+    }
+    const sanitized = Number(String(sbtcBalance).replace(/,/g, ''));
+    return Number.isFinite(sanitized) ? sanitized : 0;
+  }, [btcBalance.value, liquidBalance.value, rskBalance.value, sbtcBalance, sendAsset]);
+
+  const remainingBalanceValue = useMemo(() => {
+    if (!availableBalanceValue || !parsedAmount) {
+      return null;
+    }
+    const remaining = availableBalanceValue - parsedAmount;
+    return Number.isFinite(remaining) ? remaining : null;
+  }, [availableBalanceValue, parsedAmount]);
+
+  const quickFillOptions = useMemo(() => {
+    if (!availableBalanceValue || availableBalanceValue <= 0) {
+      return [];
+    }
+    const options = [
+      { label: '25%', value: formatQuickFillAmount(availableBalanceValue * 0.25) },
+      { label: '50%', value: formatQuickFillAmount(availableBalanceValue * 0.5) },
+      { label: '75%', value: formatQuickFillAmount(availableBalanceValue * 0.75) },
+      { label: 'All', value: formatQuickFillAmount(availableBalanceValue) }
+    ];
+    return options.filter((option): option is { label: string; value: string } => Boolean(option.value));
+  }, [availableBalanceValue]);
+
+  const maxFillValue = useMemo(() => formatQuickFillAmount(availableBalanceValue), [availableBalanceValue]);
+
+  const getSendAssetBalanceDisplay = useCallback((asset: SendAsset) => {
+    if (asset === 'bitcoin') {
+      return btcBalance.display;
+    }
+    if (asset === 'rootstock') {
+      return rskBalance.display;
+    }
+    if (asset === 'liquid') {
+      return liquidBalance.display;
+    }
+    if (asset === 'sbtc') {
+      if (sbtcBalance === '--') return '--';
+      const sanitized = Number(String(sbtcBalance ?? '0').replace(/,/g, ''));
+      return `${formatCompactBalance(Number.isFinite(sanitized) ? sanitized : 0)} BTC`;
+    }
+    const unit = SEND_ASSETS.find((sendAssetOption) => sendAssetOption.id === asset)?.unit ?? '';
+    return `0.00${unit ? ` ${unit}` : ''}`;
+  }, [btcBalance.display, liquidBalance.display, rskBalance.display, sbtcBalance]);
+  const selectedAssetBalanceDisplay = getSendAssetBalanceDisplay(sendAsset);
+  const selectedAssetBalanceLoading = sendAsset === 'bitcoin'
+    ? btcBalanceLoading
+    : sendAsset === 'rootstock'
+      ? rskBalanceLoading
+      : sendAsset === 'liquid'
+        ? liquidBalanceLoading
+        : loading;
+  const selectedAssetBalanceUnavailable = !selectedAssetBalanceLoading && (
+    sendAsset === 'bitcoin'
+      ? btcBalance.value === null
+      : sendAsset === 'rootstock'
+        ? rskBalance.value === null
+        : sendAsset === 'liquid'
+          ? liquidBalance.value === null
+          : sbtcBalance === '--'
+  );
+  const sendActionLabel = selectedSendAsset.supported
+    ? (sendAsset === 'bitcoin'
+      ? isLocalWallet ? 'Send' : 'Send'
+      : sendAsset === 'rootstock' ? 'Send'
+      : extensionAvailable ? 'Send via Extension' : 'Send')
+    : 'Select Supported Asset';
+  const summaryRecipientDisplay = trimmedRecipient ? abbreviateAddress(trimmedRecipient, 6) : 'Add recipient';
+  const remainingBalanceDisplay = remainingBalanceValue !== null ? formatCompactBalance(Math.max(remainingBalanceValue, 0)) : null;
+
+  const stxAsset = assets.find((asset) => asset.id === 'stx' || asset.symbol === 'STX');
+  const stxBalanceDisplay = formatStacksAssetCardBalance(stxAsset?.formattedBalance);
+  const btcBalanceDisplay = formatAssetCardBalance(btcBalance);
+  const rskBalanceDisplay = formatAssetCardBalance(rskBalance);
+  const liquidBalanceDisplay = formatAssetCardBalance(liquidBalance);
+  const visibleAssets = assets.filter((asset) => asset.symbol !== 'STX');
+  const visibleAssetCount = visibleAssets.length;
+  const identityProviderLabel = walletType === 'nostria' ? 'Nostria Signer' : walletType === 'alby' ? 'Alby' : 'Nostr';
+  const primaryBalanceDisplay = isNostrLightningAccount
+    ? lightningBalance.display
+    : isBitcoinOnlyAccount
+      ? btcBalance.display
+    : sbtcBalance;
+  const primaryBalanceLoading = isNostrLightningAccount
+    ? lightningBalance.status === 'loading'
+    : isBitcoinOnlyAccount
+      ? btcBalanceLoading
+      : loading;
+  const primaryBalanceUnavailable = !primaryBalanceLoading && (
+    isNostrLightningAccount
+      ? lightningBalance.status === 'unavailable'
+      : isBitcoinOnlyAccount
+        ? btcBalance.value === null
+        : sbtcBalance === '--'
+  );
+  const stxBalanceUnavailable = !loading && sbtcBalance === '--';
+  const primaryBalanceLabel = isNostrLightningAccount
+    ? lightningBalance.status === 'available'
+      ? 'Lightning balance'
+      : 'Nostr account'
+    : isBitcoinOnlyAccount
+      ? 'Bitcoin balance'
+    : 'Satoshis';
+
+  const resetSendForm = () => {
+    setSendTo("");
+    setSendAmount("");
+    setSendPassword("");
+    setSendMemo("");
+    setSendAsset('bitcoin');
+  };
+
+  const closeSendModal = () => {
+    resetSendForm();
+    setShowSend(false);
+  };
+
+  const closeReceiveModal = () => setShowReceive(false);
+
+  useEffect(() => {
+    if (isBitcoinOnlyAccount && receiveAsset !== 'bitcoin') {
+      setReceiveAsset('bitcoin');
+    }
+  }, [isBitcoinOnlyAccount, receiveAsset]);
+
+  const handleReceiveAssetKeyDown = useCallback((event: React.KeyboardEvent<HTMLElement>, asset: ReceiveAsset) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    setReceiveAsset(asset);
+  }, []);
+
+  const copyReceiveAddress = useCallback(async (value: string, label: string) => {
+    const copied = await copyToClipboard(value);
+    if (copied) {
+      toast.success(`${label} address copied!`);
+    } else {
+      toast.error(`Failed to copy ${label} address`);
+    }
+  }, []);
+
+  const openGenerateAddressModal = useCallback((layer: ReceiveLayer) => {
+    setGenerateAddressLayer(layer);
+    setGenerateAddressAuthMode(getStoredEncryptedWallet() ? 'unlock' : 'create');
+    setCreatePasskeyError(null);
+    setShowGenerateAddressesModal(true);
+  }, []);
+
+  const closeGenerateAddressModal = useCallback(() => {
+    if (generatingAddresses) return;
+    setShowGenerateAddressesModal(false);
+    setGenerateAddressLayer(null);
+    setGenerateAddressAuthMode('unlock');
+    setCreatePasskeyError(null);
+  }, [generatingAddresses]);
+
+  const persistGeneratedReceiveAddress = useCallback(async (wallet: WalletData, layer: ReceiveLayer) => {
+    if (!wallet?.privateKey?.trim()) {
+      throw new Error('Wallet unlocked, but this local account does not include a private key. Restore or reconnect the wallet before generating receive addresses.');
+    }
+
+    const bitcoinNetwork = currentNetwork === 'testnet' ? 'testnet' : 'mainnet';
+    const addressUpdates: {
+      bitcoinAddress?: string;
+      rootstockAddress?: string;
+      liquidAddress?: string;
+    } = {};
+
+    if (layer === 'bitcoin') {
+      const nextBitcoinAddress = wallet.bitcoinAddress || getBitcoinAddressFromPrivateKey(wallet.privateKey, bitcoinNetwork);
+      addressUpdates.bitcoinAddress = nextBitcoinAddress;
+    }
+
+    if (layer === 'rootstock') {
+      const nextRootstockAddress = wallet.rootstockAddress || getRootstockAddressFromPrivateKey(wallet.privateKey);
+      addressUpdates.rootstockAddress = nextRootstockAddress;
+    }
+
+    if (layer === 'liquid') {
+      const nextLiquidAddress = wallet.liquidAddress || getLiquidAddressFromPrivateKey(wallet.privateKey, bitcoinNetwork);
+      addressUpdates.liquidAddress = nextLiquidAddress;
+    }
+
+    const nextBitcoinAddress = addressUpdates.bitcoinAddress || wallet.bitcoinAddress || btcAddress || undefined;
+    const nextRootstockAddress = addressUpdates.rootstockAddress || wallet.rootstockAddress || rskAddress || undefined;
+    const nextLiquidAddress = addressUpdates.liquidAddress || wallet.liquidAddress || liquidAddress || undefined;
+
+    await saveReceiveAddressesToSupabase({
+      address: address || wallet.address,
+      ...(nextBitcoinAddress ? { bitcoinAddress: nextBitcoinAddress } : {}),
+      ...(nextRootstockAddress ? { rootstockAddress: nextRootstockAddress } : {}),
+      ...(nextLiquidAddress ? { liquidAddress: nextLiquidAddress } : {}),
+    });
+
+    updateEncryptedWalletAddresses(addressUpdates);
+
+    if (addressUpdates.bitcoinAddress) {
+      setBtcAddress(addressUpdates.bitcoinAddress);
+      setBtcAddressError(null);
+    }
+
+    if (addressUpdates.rootstockAddress) {
+      setRskAddress(addressUpdates.rootstockAddress);
+    }
+
+    if (addressUpdates.liquidAddress) {
+      setLiquidAddress(addressUpdates.liquidAddress);
+    }
+  }, [address, btcAddress, currentNetwork, liquidAddress, rskAddress]);
+
+  const handleGenerateAddress = useCallback(async (password: string) => {
+    if (!generateAddressLayer) {
+      throw new Error('Select an address layer to generate');
+    }
+
+    setGeneratingAddresses(true);
+
+    try {
+      const wallet = await retrieveEncryptedWallet(password);
+      if (!wallet) {
+        throw new Error('Invalid wallet password');
+      }
+      await persistGeneratedReceiveAddress(wallet, generateAddressLayer);
+      setShowGenerateAddressesModal(false);
+      setGenerateAddressLayer(null);
+      toast.success(`${RECEIVE_LAYER_LABELS[generateAddressLayer]} address generated`);
+    } finally {
+      setGeneratingAddresses(false);
+    }
+  }, [generateAddressLayer, persistGeneratedReceiveAddress]);
+
+  const handleCreatePasskeyAndGenerateAddress = useCallback(async (
+    password: string,
+    email?: string,
+    verifiedEmailToken?: string
+  ) => {
+    if (!generateAddressLayer) {
+      setCreatePasskeyError('Select an address layer to generate');
+      return;
+    }
+
+    const trimmedEmail = email?.trim();
+    if (!trimmedEmail) {
+      setCreatePasskeyError('Email is required to create a passkey account.');
+      return;
+    }
+
+    if (!verifiedEmailToken) {
+      setCreatePasskeyError('Verify your email before creating your passkey account.');
+      return;
+    }
+
+    setGeneratingAddresses(true);
+    setCreatePasskeyError(null);
+
+    try {
+      const duplicateResponse = await fetch('/api/profile/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedEmail }),
+      });
+      const duplicateResult = await duplicateResponse.json().catch(() => null);
+      const profileAddressMatchesCurrent =
+        typeof duplicateResult?.profileAddress === 'string' &&
+        address &&
+        duplicateResult.profileAddress.toLowerCase() === address.toLowerCase();
+      const accountAddressMatchesCurrent =
+        typeof duplicateResult?.accountAddress === 'string' &&
+        address &&
+        duplicateResult.accountAddress.toLowerCase() === address.toLowerCase();
+      const duplicateBelongsToAnotherAddress =
+        duplicateResult?.exists &&
+        !profileAddressMatchesCurrent &&
+        !accountAddressMatchesCurrent;
+
+      if (duplicateResponse.ok && duplicateBelongsToAnotherAddress) {
+        throw new Error('Email is already registered.');
+      }
+
+      const networkForWallet = currentNetwork === 'testnet' ? 'testnet' : 'mainnet';
+      const {
+        mnemonic,
+        stxPrivateKey,
+        address: walletAddress,
+        bitcoinAddress,
+        rootstockAddress,
+        liquidAddress,
+        nostrPublicKey,
+      } = await createStacksAccount(networkForWallet);
+
+      const walletData: WalletData = {
+        mnemonic,
+        privateKey: stxPrivateKey,
+        bitcoinAddress,
+        rootstockAddress,
+        liquidAddress,
+        nostrPublicKey,
+        address: address || walletAddress,
+        label: `BBOX Wallet - ${trimmedEmail}`,
+      };
+
+      await createEncryptedWallet(walletData, password);
+      if (!address) {
+        persistCachedWalletState(walletData.address, 'imported');
+        setAddress(walletData.address);
+        setWalletType('imported');
+      }
+
+      const encryptedSnapshot = getStoredEncryptedWallet();
+      if (!encryptedSnapshot) {
+        throw new Error('Failed to capture encrypted wallet snapshot. Please try again.');
+      }
+
+      const saveResponse = await fetch('/api/save-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          verifiedEmailToken,
+          passkey: stxPrivateKey,
+          passphrase: password,
+          address: walletData.address,
+          encryptedWallet: {
+            encryptedMnemonic: encryptedSnapshot.encryptedMnemonic,
+            encryptedPrivateKey: encryptedSnapshot.encryptedPrivateKey,
+            salt: encryptedSnapshot.salt,
+            iv: encryptedSnapshot.iv,
+            version: encryptedSnapshot.version,
+            label: encryptedSnapshot.label,
+            bitcoinAddress: encryptedSnapshot.bitcoinAddress,
+            rootstockAddress: encryptedSnapshot.rootstockAddress,
+            liquidAddress: encryptedSnapshot.liquidAddress,
+          },
+        }),
+      });
+      const saveResult = await saveResponse.json().catch(() => null);
+
+      if (!saveResponse.ok) {
+        if (saveResponse.status === 409) {
+          throw new Error(saveResult?.error || 'Email is already registered.');
+        }
+        throw new Error(saveResult?.error || 'Failed to create passkey account.');
+      }
+
+      await fetch('/api/wallet-connect/account-created', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedEmail, bitcoinAddress: walletData.bitcoinAddress, preVerified: true }),
+      }).catch((error) => {
+        console.warn('Failed to send account created email:', error);
+      });
+
+      await persistGeneratedReceiveAddress(walletData, generateAddressLayer);
+      setShowGenerateAddressesModal(false);
+      setGenerateAddressLayer(null);
+      toast.success(`${RECEIVE_LAYER_LABELS[generateAddressLayer]} address generated`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create passkey account';
+      setCreatePasskeyError(message);
+      throw error;
+    } finally {
+      setGeneratingAddresses(false);
+    }
+  }, [address, createEncryptedWallet, currentNetwork, generateAddressLayer, persistGeneratedReceiveAddress, setAddress, setWalletType]);
+
+  const handlePasteRecipient = useCallback(async () => {
+    if (sendLoading) {
+      return;
+    }
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.readText) {
+      toast.error("Clipboard unavailable in this context.");
+      return;
+    }
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) {
+        toast.error("Clipboard is empty.");
+        return;
+      }
+      setSendTo(text.trim());
+      toast.success("Recipient pasted.");
+    } catch (error) {
+      console.warn('Clipboard read failed', error);
+      toast.error("Clipboard permission denied.");
+    }
+  }, [sendLoading]);
+
+  const handleQuickFillValue = useCallback((value: string) => {
+    if (!value || sendLoading) {
+      return;
+    }
+    setSendAmount(value);
+  }, [sendLoading]);
+
+  const sendMethodTitle = selectedSendAsset.supported
+    ? `Sending ${selectedSendAsset.label} ${sendAsset === 'bitcoin' && !isLocalWallet || extensionAvailable && sendAsset === 'sbtc' ? 'with Extension' : 'with Local Wallet'}`
+    : `${selectedSendAsset.label} selected`;
+  const sendMethodDescription = selectedSendAsset.supported
+    ? (sendAsset === 'bitcoin' && isLocalWallet
+      ? 'Your encrypted wallet password unlocks the local private key to sign and broadcast this BTC transfer.'
+      : sendAsset === 'bitcoin'
+      ? 'Your Bitcoin browser wallet will build, sign, fee, and broadcast this BTC transfer.'
+      : sendAsset === 'rootstock'
+      ? isLocalWallet
+        ? 'Your encrypted wallet password unlocks the local private key to sign and broadcast this native RBTC transfer on Rootstock.'
+        : 'Rootstock sends are available from local encrypted wallets. Create or unlock a local wallet to continue.'
+      : sendAsset === 'liquid'
+      ? isLocalWallet
+        ? 'Your encrypted wallet password unlocks the local private key to sign and broadcast this L-BTC transfer on Liquid.'
+        : 'Liquid sends are available from local encrypted wallets. Create or unlock a local wallet to continue.'
+      : extensionAvailable
+      ? 'Your connected browser wallet will handle signing, fees, and confirmation prompts for this transfer.'
+      : 'Your encrypted wallet password unlocks the private key locally to sign this transfer.')
+    : unsupportedSendAssetMessage;
+  const primaryReceiveAddress = btcAddress;
+  const selectedReceiveAddress = receiveAsset === 'bitcoin'
+    ? isOkxBitcoinAccount
+      ? selectedOkxBitcoinAddress || primaryReceiveAddress
+      : primaryReceiveAddress
+    : receiveAsset === 'stacks'
+      ? address
+      : receiveAsset === 'rootstock'
+        ? rskAddress
+        : liquidAddress;
+  const selectedReceiveLabel = RECEIVE_ASSET_LABELS[receiveAsset];
+  const getReceiveCopyButtonClass = useCallback((asset: ReceiveAsset) => {
+    const baseClass = 'shrink-0 text-sm p-2 rounded-lg transition';
+    return receiveAsset === asset
+      ? `${baseClass} text-foreground hover:bg-transparent`
+      : `${baseClass} text-foreground hover:bg-muted`;
+  }, [receiveAsset]);
   // Detect if Hiro Wallet extension is available and connected (optional, can remove if not needed)
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.StacksProvider) {
+    if (typeof window !== 'undefined' && (window.StacksProvider || window.XverseProviders?.StacksProvider)) {
       setExtensionAvailable(true);
     } else {
       setExtensionAvailable(false);
     }
   }, [showSend]);
 
-  // Fetch CHOLO token balance
   useEffect(() => {
-    if (!address) {
-      setCholoBalance(null);
+    let cancelled = false;
+
+    if (!isNostrLightningAccount) {
+      setLightningBalance({ display: '--', status: 'idle' });
+      return;
+    }
+
+    const loadLightningBalance = async () => {
+      const browserWindow = typeof window !== 'undefined'
+        ? window as typeof window & {
+          alby?: { enable?: () => Promise<void>; webln?: BalanceCapableWebLN };
+          webln?: BalanceCapableWebLN;
+        }
+        : undefined;
+      const provider = walletType === 'alby'
+        ? browserWindow?.alby?.webln ?? browserWindow?.webln
+        : undefined;
+
+      if (!provider?.getBalance) {
+        setLightningBalance({ display: '--', status: 'unavailable' });
+        return;
+      }
+
+      setLightningBalance({ display: 'Loading...', status: 'loading' });
+
+      try {
+        if (browserWindow?.alby?.enable) {
+          await browserWindow.alby.enable();
+        } else if (provider.enable) {
+          await provider.enable();
+        }
+
+        const balance = await provider.getBalance();
+        const balanceValue = typeof balance?.balance === 'number' ? balance.balance : null;
+
+        if (!cancelled) {
+          setLightningBalance({
+            display: balanceValue === null ? '--' : formatLightningBalance(balanceValue, balance.currency),
+            status: balanceValue === null ? 'unavailable' : 'available',
+          });
+        }
+      } catch (error) {
+        console.warn('Failed to fetch Lightning balance:', error);
+        if (!cancelled) {
+          setLightningBalance({ display: '--', status: 'unavailable' });
+        }
+      }
+    };
+
+    void loadLightningBalance();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isNostrLightningAccount, showSend, walletType]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!address || !isNostrLightningAccount) {
+      setProfileLightningAddress(null);
+      return;
+    }
+
+    getProfile(address)
+      .then((profile) => {
+        if (!cancelled) {
+          setProfileLightningAddress(profile?.lightning_address || null);
+        }
+      })
+      .catch((error) => {
+        console.warn('Failed to load profile Lightning address:', error);
+        if (!cancelled) {
+          setProfileLightningAddress(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address, isNostrLightningAccount]);
+
+  // Stay aligned with the wallet's network (address prefixes reveal it)
+  useEffect(() => {
+    const inferredNetwork = inferNetworkFromAddress(address);
+    if (inferredNetwork && inferredNetwork !== currentNetwork) {
+      persistNetwork(inferredNetwork);
+      setCurrentNetwork(inferredNetwork);
+      return;
+    }
+
+    if (!inferredNetwork) {
+      const persistedNetwork = getPersistedNetwork();
+      if (persistedNetwork !== currentNetwork) {
+        setCurrentNetwork(persistedNetwork);
+      }
+    }
+  }, [address, currentNetwork]);
+
+  // Fetch SBTC token balance and asset inventory
+  useEffect(() => {
+    if (isNostrLightningAccount || isBitcoinOnlyAccount) {
+      setSbtcBalance(null);
+      setAssets([]);
       setLoading(false);
+      setAssetsLoading(false);
+      return;
+    }
+
+    if (!address) {
+      setSbtcBalance(null);
+      setAssets([]);
+      setLoading(false);
+      setAssetsLoading(false);
       return;
     }
     
     setLoading(true);
+    setAssetsLoading(true);
     
-    // Get current network and use appropriate API endpoint
-    const currentNetwork = getPersistedNetwork();
     const apiBaseUrl = getApiUrl(currentNetwork);
-    
-    // Fetch CHOLO token balance from the fungible token contract
     const apiUrl = `${apiBaseUrl}/extended/v1/address/${address}/balances?unanchored=false`;
-    
-    console.log(`Fetching CHOLO balance from ${currentNetwork} network:`, apiUrl);
+    const normalizedSbtcId = sbtcContractId?.toLowerCase();
     
     fetch(apiUrl)
-      .then(res => res.json())
-      .then(data => {
-        // Look for CHOLO token in fungible_tokens
-        let choloTokenBalance = '0';
-        
-        // The full token identifier includes ::cholo suffix
-        const choloTokenKey = 'SP193GXQTNHVV9WSAPHAB89M6R9QSEXZKS3774CMD.cholo::cholo';
-        
-        if (data.fungible_tokens && data.fungible_tokens[choloTokenKey]) {
-          const balance = data.fungible_tokens[choloTokenKey].balance;
-          // CHOLO has 8 decimals based on the balance format (8000000000 = 80 CHOLO)
-          choloTokenBalance = (Number(balance) / 1e8).toLocaleString();
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`Balances request failed with ${res.status}`);
         }
-        
-        console.log('CHOLO Balance data:', data.fungible_tokens);
-        console.log('CHOLO Balance:', choloTokenBalance);
-        
-        setCholoBalance(choloTokenBalance);
+        return res.json();
+      })
+      .then(data => {
+        type FungibleTokenData = {
+          balance: string;
+          total_sent?: string;
+          total_received?: string;
+          token?: {
+            address: string;
+            contractName: string;
+            name?: string;
+            symbol?: string;
+            decimals?: number;
+          };
+        };
+
+        const parsedAssets: WalletAsset[] = [];
+        let detectedSbtcBalance: string | null = null;
+
+        const stxBalanceRaw = data?.stx?.balance;
+        if (typeof stxBalanceRaw === 'string') {
+          parsedAssets.push({
+            id: 'stx',
+            name: 'Stacks',
+            symbol: 'STX',
+            formattedBalance: formatTokenBalance(stxBalanceRaw, 6),
+            rawBalance: stxBalanceRaw,
+            type: 'stx',
+          });
+        }
+
+        const tokens = (data?.fungible_tokens || {}) as Record<string, FungibleTokenData>;
+
+        Object.entries(tokens).forEach(([key, tokenData]) => {
+          const decimals = typeof tokenData?.token?.decimals === 'number' ? tokenData.token.decimals : 0;
+          const rawBalance = tokenData?.balance ?? '0';
+          const symbol = tokenData?.token?.symbol || key.split('::').pop() || 'FT';
+          const name = tokenData?.token?.name || symbol;
+          const lowerKey = key.toLowerCase();
+          const lowerSymbol = symbol.toLowerCase();
+          const lowerName = name.toLowerCase();
+          const isSbtcToken = Boolean(
+            (normalizedSbtcId && lowerKey.startsWith(`${normalizedSbtcId}::`)) ||
+            lowerSymbol.includes('sbtc') ||
+            lowerName.includes('sbtc')
+          );
+          if (isSbtcToken) {
+            detectedSbtcBalance = formatTokenBalance(rawBalance, decimals);
+            return;
+          }
+
+          parsedAssets.push({
+            id: key,
+            name,
+            symbol: symbol.toUpperCase(),
+            formattedBalance: formatTokenBalance(rawBalance, decimals),
+            rawBalance,
+            type: 'fungible',
+          });
+        });
+
+        parsedAssets.sort((a, b) => {
+          const aVal = Number(a.rawBalance || '0');
+          const bVal = Number(b.rawBalance || '0');
+          return bVal - aVal;
+        });
+
+        const sbtcTokenBalance = detectedSbtcBalance ?? '0';
+        const featuredAssets = parsedAssets.filter((asset) => {
+          if (asset.symbol === 'STX') return true;
+          const assetId = typeof asset.id === 'string' ? asset.id.toLowerCase() : '';
+          const assetSymbol = typeof asset.symbol === 'string' ? asset.symbol.toLowerCase() : '';
+          return FEATURED_TOKEN_CONTRACTS.has(assetId) || FEATURED_TOKEN_SYMBOLS.has(assetSymbol);
+        });
+
+        setAssets(featuredAssets);
+        setSbtcBalance(sbtcTokenBalance);
         setLoading(false);
+        setAssetsLoading(false);
       })
       .catch((error) => {
-        console.error('Failed to fetch CHOLO balance:', error);
-        setCholoBalance('--');
+        console.error('Failed to fetch wallet balances:', error);
+        setAssets([]);
+        setSbtcBalance('--');
         setLoading(false);
+        setAssetsLoading(false);
       });
-  }, [address]);
+  }, [address, currentNetwork, sbtcContractId, formatTokenBalance, isNostrLightningAccount, isBitcoinOnlyAccount, stacksBalanceRefreshKey]);
 
   // Send handler
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!sendFormValid) {
+      toast.error("Please fix the highlighted fields before sending.");
+      return;
+    }
+
+    if (sendAsset !== 'sbtc' && sendAsset !== 'bitcoin' && sendAsset !== 'rootstock' && sendAsset !== 'liquid') {
+      toast.error(unsupportedSendAssetMessage || 'This asset is not supported for sending yet.');
+      return;
+    }
+
     setSendLoading(true);
+    const recipient = trimmedRecipient;
+    const amountInSats = sendAsset === 'bitcoin' ? btcToSats(sendAmount) : Number(sendAmount);
+    const memoPayload = supportsMemo && !memoError ? sendMemo.trim() : '';
+
+    if (!amountInSats || amountInSats <= 0) {
+      toast.error(`Enter a valid ${selectedSendAsset.unit} amount.`);
+      setSendLoading(false);
+      return;
+    }
+
     try {
+      if (sendAsset === 'bitcoin') {
+        if (isLocalWallet) {
+          const wallet = await retrieveEncryptedWallet(sendPassword);
+          if (!wallet?.privateKey) throw new Error('Invalid password or wallet not found');
+
+          const txId = await sendBitcoinWithKey({
+            privateKey: wallet.privateKey,
+            toAddress: recipient,
+            amountSats: amountInSats,
+            network: currentNetwork,
+          });
+
+          toast.success(`BTC transfer sent! TXID: ${txId}`);
+          closeSendModal();
+          return;
+        }
+
+        const response = await satsRequest('sendTransfer', {
+          recipients: [
+            {
+              address: recipient,
+              amount: amountInSats,
+            },
+          ],
+        });
+
+        if (response.status === 'success') {
+          toast.success(`BTC transfer sent! TXID: ${response.result.txid}`);
+          closeSendModal();
+          return;
+        }
+
+        if (!isWalletRequestCancelled(response.error)) {
+          toast.error(getWalletErrorMessage(response.error, 'Bitcoin transfer failed'));
+        }
+        return;
+      }
+
+      if (sendAsset === 'rootstock') {
+        if (!isLocalWallet) {
+          throw new Error('Rootstock sends require a local encrypted wallet.');
+        }
+
+        const wallet = await retrieveEncryptedWallet(sendPassword);
+        if (!wallet?.privateKey) throw new Error('Invalid password or wallet not found');
+
+        const txId = await sendRootstockWithKey({
+          privateKey: wallet.privateKey,
+          toAddress: recipient,
+          amountRbtc: sendAmount,
+          network: currentNetwork,
+        });
+
+        toast.success(`RBTC transfer sent! TXID: ${txId}`);
+        closeSendModal();
+        return;
+      }
+
+      if (sendAsset === 'liquid') {
+        if (!isLocalWallet) {
+          throw new Error('Liquid sends require a local encrypted wallet.');
+        }
+
+        const wallet = await retrieveEncryptedWallet(sendPassword);
+        if (!wallet?.privateKey) throw new Error('Invalid password or wallet not found');
+
+        const txId = await sendLiquidWithKey({
+          privateKey: wallet.privateKey,
+          toAddress: recipient,
+          amountLbtc: sendAmount,
+          network: currentNetwork,
+        });
+
+        toast.success(`L-BTC transfer sent! TXID: ${txId}`);
+        closeSendModal();
+        return;
+      }
+
+      const sbtcAmount = BigInt(amountInSats);
+
       if (extensionAvailable) {
         try {
-          const win = typeof window !== 'undefined' ? window : undefined;
-          let provider: {
-            request?: (method: string, params?: unknown) => Promise<unknown>;
-          } | null = null;
-          if (win && 'LeatherProvider' in win) {
-            provider = (win.LeatherProvider ?? null) as { request?: (method: string, params?: unknown) => Promise<unknown> };
-          } else if (
-            win &&
-            'XverseProviders' in win &&
-            typeof (win as { XverseProviders?: { StacksProvider?: unknown } }).XverseProviders !== 'undefined' &&
-            (win as { XverseProviders: { StacksProvider?: unknown } }).XverseProviders.StacksProvider
-          ) {
-            provider = ((win as { XverseProviders: { StacksProvider?: unknown } }).XverseProviders.StacksProvider ?? null) as { request?: (method: string, params?: unknown) => Promise<unknown> };
-          } else if (win && 'StacksProvider' in win) {
-            provider = (win.StacksProvider ?? null) as { request?: (method: string, params?: unknown) => Promise<unknown> };
-          }
-          if (!provider) {
-            toast.error('No compatible wallet extension found.');
-            setSendLoading(false);
-            return;
-          }
-          // Leather: use "stx_transferStx"; Xverse: use "stx_transferStx"; fallback: try "stx_requestTransfer"
-          try {
-            await provider.request?.(
-              "stx_transferStx",
-              {
-                recipient: sendTo,
-                amount: String(Math.round(Number(sendAmount) * 1e6)), // microSTX as string
-                memo: '',
-              }
-            );
-          } catch (err) {
-            // Try fallback method for older providers
-            if (provider.request && typeof provider.request === 'function') {
-              try {
-                await provider.request?.(
-                  "stx_requestTransfer",
-                  {
-                    recipient: sendTo,
-                    amount: String(Math.round(Number(sendAmount) * 1e6)),
-                    memo: '',
-                  }
-                );
-              } catch (fallbackErr) {
-                throw fallbackErr;
-              }
-            } else {
-              throw err;
-            }
-          }
-          toast.success('Transaction sent via extension!');
-          setShowSend(false);
-          setSendTo("");
-          setSendAmount("");
-          setSendPassword("");
+          await sendSbtcDonation({
+            amount: sbtcAmount,
+            senderAddress: address,
+            recipientAddress: recipient,
+            memo: memoPayload,
+            onFinish: (txId) => {
+              toast.success(`sBTC transfer sent! TXID: ${txId}`);
+            },
+            onCancel: () => {
+              toast('sBTC transfer cancelled');
+            },
+          });
+          closeSendModal();
         } catch (err: unknown) {
           // Log the error object for debugging
           console.error('Extension transaction error:', err);
-          let errorMsg = 'Extension transaction failed';
-          let isUserCancel = false;
-          if (err && typeof err === 'object' && err !== null) {
-            if ('message' in err && typeof (err as Record<string, unknown>).message === 'string') {
-              errorMsg = (err as { message: string }).message;
-              if (errorMsg.includes('User canceled the request')) {
-                isUserCancel = true;
-              }
-            } else if ('error' in err && typeof (err as Record<string, unknown>).error === 'string') {
-              errorMsg = (err as { error: string }).error;
-              if (errorMsg.includes('User canceled the request')) {
-                isUserCancel = true;
-              }
-            } else {
-              try {
-                errorMsg = JSON.stringify(err);
-              } catch {}
-            }
-          }
-          if (!isUserCancel) {
+          const errorMsg = getWalletErrorMessage(err, 'Extension transaction failed');
+          if (!isWalletRequestCancelled(err)) {
             toast.error(errorMsg);
           }
         }
-  setSendLoading(false);
-  return;
+        setSendLoading(false);
+        return;
       }
       // 1. Decrypt wallet with password
       const wallet = await retrieveEncryptedWallet(sendPassword);
       if (!wallet || !wallet.privateKey) throw new Error("Invalid password or wallet not found");
 
-      // 2. Prepare transaction
-      const network = getSigningNetwork();
-      const tx = await makeSTXTokenTransfer({
-        recipient: sendTo,
-        amount: Math.round(Number(sendAmount) * 1e6),
-        senderKey: wallet.privateKey,
-        network,
+      const txId = await sendSbtcDonationWithKey({
+        amount: sbtcAmount,
+        senderAddress: wallet.address,
+        recipientAddress: recipient,
+        memo: memoPayload,
+        privateKey: wallet.privateKey,
       });
 
-      // 3. Broadcast transaction
-      const result = await broadcastTransaction({ transaction: tx, network });
-      if ('txid' in result) {
-        toast.success(`Transaction sent! TXID: ${result.txid}`);
-      } else {
-        toast.error(result || 'Broadcast failed');
-      }
-      setShowSend(false);
-      setSendTo("");
-      setSendAmount("");
-      setSendPassword("");
+      toast.success(`sBTC transfer sent! TXID: ${txId}`);
+      closeSendModal();
     } catch (err: unknown) {
       if (err instanceof Error) {
-        toast.error(err.message || 'Failed to send STX');
+        toast.error(err.message || 'Error sending sBTC');
       } else {
-        toast.error('Failed to send STX');
+        toast.error("Error sending sBTC");
       }
     } finally {
       setSendLoading(false);
@@ -234,142 +1428,777 @@ export default function WalletPage() {
 
   // Fetch recent transactions
   useEffect(() => {
-    if (!address) {
+    if (!address || isNostrLightningAccount || isBitcoinOnlyAccount) {
       setTransactions([]);
+      setTxLoading(false);
       return;
     }
     setTxLoading(true);
-    const network = getPersistedNetwork();
-    fetchRecentTransactions(address, network, 10)
+    fetchRecentTransactions<RecentTransaction>(address, currentNetwork, 10)
       .then(setTransactions)
       .catch(() => setTransactions([]))
       .finally(() => setTxLoading(false));
-  }, [address, showSend]);
+  }, [address, currentNetwork, showSend, isNostrLightningAccount, isBitcoinOnlyAccount]);
 
+  useEffect(() => {
+    if (address && isBitcoinOnlyAccount) {
+      setBtcAddress(address);
+      setBtcAddressError(null);
+      setBtcAddressLoading(false);
+      setRskAddress(null);
+      setLiquidAddress(null);
+      return;
+    }
+
+    if (!address || isNostrLightningAccount) {
+      setBtcAddress(null);
+      setBtcAddressError(null);
+      setBtcAddressLoading(false);
+      setBtcBalance(EMPTY_NATIVE_BALANCE);
+      setRskBalance(EMPTY_NATIVE_BALANCE);
+      setLiquidBalance(EMPTY_NATIVE_BALANCE);
+      setBtcBalanceLoading(false);
+      setRskBalanceLoading(false);
+      setLiquidBalanceLoading(false);
+      return;
+    }
+
+    setBtcAddressLoading(true);
+    setBtcAddressError(null);
+
+    const apiBaseUrl = getApiUrl(currentNetwork);
+    const accountUrl = `${apiBaseUrl}/v2/accounts/${address}`;
+
+    fetch(accountUrl)
+      .then(async (res) => {
+        if (!res.ok) {
+          let message = `Account lookup failed with ${res.status}`;
+          try {
+            const payload = await res.json();
+            if (payload && typeof payload === 'object') {
+              const errorValue = (payload as { error?: unknown }).error;
+              if (typeof errorValue === 'string') {
+                message = errorValue;
+              } else if (typeof errorValue === 'object' && errorValue !== null) {
+                const text = getWalletErrorMessage(errorValue, message);
+                if (text) message = text;
+              }
+            }
+          } catch {
+            // ignore parse failures
+          }
+          throw new Error(message);
+        }
+        return res.json();
+      })
+      .then(data => {
+        const btcInfo = data?.btc_address;
+        const derivedAddress = typeof btcInfo === 'string'
+          ? btcInfo
+          : btcInfo?.p2wpkh || btcInfo?.bech32 || btcInfo?.p2tr || null;
+
+        const storedWallet = getStoredEncryptedWallet();
+        const localBitcoinAddress = storedWallet?.bitcoinAddress ?? null;
+        const localRskAddress = storedWallet?.rootstockAddress ?? null;
+        const localLiquidAddress = storedWallet?.liquidAddress ?? null;
+        const finalAddress = derivedAddress || localBitcoinAddress;
+
+        setBtcAddress(finalAddress);
+        setRskAddress(localRskAddress);
+        setLiquidAddress(localLiquidAddress);
+        if (!finalAddress) {
+          setBtcAddressError('No Bitcoin address reported for this account yet.');
+        }
+      })
+      .catch(error => {
+        console.error('Failed to fetch Bitcoin L1 address:', error);
+        const storedWallet = getStoredEncryptedWallet();
+        const localBitcoinAddress = storedWallet?.bitcoinAddress ?? null;
+        const localRskAddress = storedWallet?.rootstockAddress ?? null;
+        const localLiquidAddress = storedWallet?.liquidAddress ?? null;
+        setRskAddress(localRskAddress);
+        setLiquidAddress(localLiquidAddress);
+        if (localBitcoinAddress) {
+          setBtcAddress(localBitcoinAddress);
+          setBtcAddressError(null);
+        } else {
+          setBtcAddress(null);
+          setBtcAddressError(getWalletErrorMessage(error, 'Unable to derive Bitcoin address. Check your wallet connection and network.'));
+        }
+      })
+      .finally(() => setBtcAddressLoading(false));
+  }, [address, currentNetwork, isNostrLightningAccount, isBitcoinOnlyAccount]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!isOkxBitcoinAccount || !address) {
+      setOkxBitcoinAccounts([]);
+      setSelectedOkxBitcoinAddress(null);
+      return;
+    }
+
+    const fallbackAccount = { address, addressType: 'unknown', label: 'Bitcoin' } satisfies OkxBitcoinAccount;
+    setOkxBitcoinAccounts((current) => current.length > 0 ? current : [fallbackAccount]);
+    setSelectedOkxBitcoinAddress((current) => current || address);
+
+    withTimeout(getOkxBitcoinAccounts(), OKX_ACCOUNTS_TIMEOUT_MS)
+      .then((accounts) => {
+        if (cancelled) return;
+        const nextAccounts = accounts.length > 0
+          ? accounts
+          : [fallbackAccount];
+        setOkxBitcoinAccounts(nextAccounts);
+        setSelectedOkxBitcoinAddress((current) => {
+          if (current && nextAccounts.some((account) => account.address === current)) {
+            return current;
+          }
+          return nextAccounts[0]?.address ?? address;
+        });
+      })
+      .catch((error) => {
+        if (!isTimeoutError(error)) {
+          console.warn('Failed to load OKX Bitcoin accounts:', error);
+        }
+        if (!cancelled) {
+          setOkxBitcoinAccounts([fallbackAccount]);
+          setSelectedOkxBitcoinAddress(address);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address, isOkxBitcoinAccount]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!btcAddress) {
+      setBtcBalance(EMPTY_NATIVE_BALANCE);
+      setBtcBalanceLoading(false);
+      return;
+    }
+
+    setBtcBalance(ZERO_BTC_NATIVE_BALANCE);
+    setBtcBalanceLoading(true);
+    const { controller, timeoutId } = createTimedAbortController(BALANCE_FETCH_TIMEOUT_MS);
+    fetchBitcoinBalance(btcAddress, currentNetwork, controller.signal)
+      .then((balance) => {
+        if (!cancelled) setBtcBalance(balance);
+      })
+      .catch((error) => {
+        if (!isTimeoutError(error) && !controller.signal.aborted) {
+          console.error('Failed to fetch Bitcoin balance:', error);
+        }
+        if (!cancelled) setBtcBalance(ZERO_BTC_NATIVE_BALANCE);
+      })
+      .finally(() => {
+        if (!cancelled) setBtcBalanceLoading(false);
+        window.clearTimeout(timeoutId);
+      });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [btcAddress, currentNetwork, showSend, isBitcoinOnlyAccount, btcBalanceRefreshKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!rskAddress) {
+      setRskBalance(EMPTY_NATIVE_BALANCE);
+      setRskBalanceLoading(false);
+      return;
+    }
+
+    setRskBalance(EMPTY_NATIVE_BALANCE);
+    setRskBalanceLoading(true);
+    const { controller, timeoutId } = createTimedAbortController(BALANCE_FETCH_TIMEOUT_MS);
+    fetchRootstockBalance(rskAddress, currentNetwork, controller.signal)
+      .then((balance) => {
+        if (!cancelled) setRskBalance(balance);
+      })
+      .catch((error) => {
+        if (!isTimeoutError(error) && !controller.signal.aborted) {
+          console.error('Failed to fetch Rootstock balance:', error);
+        }
+        if (!cancelled) setRskBalance(EMPTY_NATIVE_BALANCE);
+      })
+      .finally(() => {
+        if (!cancelled) setRskBalanceLoading(false);
+        window.clearTimeout(timeoutId);
+      });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [currentNetwork, rskAddress, showSend, rskBalanceRefreshKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!liquidAddress) {
+      setLiquidBalance(EMPTY_NATIVE_BALANCE);
+      setLiquidBalanceLoading(false);
+      return;
+    }
+
+    setLiquidBalance(EMPTY_NATIVE_BALANCE);
+    setLiquidBalanceLoading(true);
+    const { controller, timeoutId } = createTimedAbortController(BALANCE_FETCH_TIMEOUT_MS);
+    fetchLiquidBalance(liquidAddress, currentNetwork, controller.signal)
+      .then((balance) => {
+        if (!cancelled) setLiquidBalance(balance);
+      })
+      .catch((error) => {
+        if (!isTimeoutError(error) && !controller.signal.aborted) {
+          console.error('Failed to fetch Liquid balance:', error);
+        }
+        if (!cancelled) setLiquidBalance(EMPTY_NATIVE_BALANCE);
+      })
+      .finally(() => {
+        if (!cancelled) setLiquidBalanceLoading(false);
+        window.clearTimeout(timeoutId);
+      });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [currentNetwork, liquidAddress, showSend, liquidBalanceRefreshKey]);
 
   // If no wallet address, ask to connect wallet
   if (!address) {
     return (
-      <div className="max-w-xl mx-auto my-24 p-8 rounded-2xl border shadow flex flex-col items-center justify-center select-none bg-card text-card-foreground border-border">
-        <h1 className="text-3xl font-bold mb-6">Wallet</h1>
-        <p className="mb-8 text-lg text-muted-foreground text-center">
-          Please connect your wallet to manage your funds.
-        </p>
-        <Link
-          href="/"
-          className="py-3 px-6 rounded-xl border bg-primary text-primary-foreground hover:bg-secondary hover:text-secondary-foreground border-border transition-all duration-200 focus:outline-none cursor-pointer select-none"
-        >
-          Connect Wallet
-        </Link>
+      <div className="min-h-screen bg-white px-4 py-24 text-black dark:bg-background dark:text-foreground">
+        <div className="max-w-xl mx-auto p-8 rounded-2xl border shadow flex flex-col items-center justify-center select-none bg-white text-black dark:bg-background dark:text-foreground border-border">
+          <h1 className="text-3xl font-bold mb-6"><LocalizedText>Wallet</LocalizedText></h1>
+          <p className="mb-8 text-lg text-muted-foreground text-center">
+            <LocalizedText>Please connect your wallet to manage your funds.
+          </LocalizedText></p>
+          <Link
+            href="/"
+            className="py-2 px-6 rounded-xl border bg-transparent text-foreground hover:bg-muted border-border transition-all duration-200 focus:outline-none cursor-pointer select-none"
+          >
+            <LocalizedText>Connect Wallet
+          </LocalizedText></Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background">
+    <div className="min-h-screen bg-white py-12 px-4 text-black dark:bg-background dark:text-foreground sm:px-6 my-16">
 
-      <div className="max-w-xl mx-auto p-8 bg-card rounded-2xl border border-border shadow text-card-foreground select-none min-w-[100vw] lg:min-w-1/4">
-        <div className="my-2 flex items-center justify-left">
+      <div className="w-full max-w-xl mx-auto p-8 rounded-2xl border border-border bg-white shadow text-black dark:bg-background dark:text-foreground select-none">
+        <div className="my-2 flex items-center justify-start gap-3">
           <Wallet className="w-8 h-8 text-foreground" />
-          <h1 className="title text-lg mx-4 font-bold">Wallet</h1>
-        </div>        
-      <div className="mt-2 flex justify-center">
+          <h1 className="title text-lg font-bold"><LocalizedText>Wallet</LocalizedText></h1>
+        </div>
+        <div className="mt-4 flex justify-center">
         <div className="flex items-center gap-3">
-          {loading ? (
+          {loading && !isNostrLightningAccount && !isBitcoinOnlyAccount ? (
             <LoaderCircle className="animate-spin text-foreground" size={32} />
           ) : (
             <div className="my-8 text-center">
-              <div className="title text-2xl font-bold select-all">{choloBalance}</div>
-              <div className="text-lg">CHOLO</div>
+              <BalanceDisplay
+                loading={primaryBalanceLoading}
+                unavailable={primaryBalanceUnavailable}
+                onRefresh={isBitcoinOnlyAccount ? refreshBtcBalance : isNostrLightningAccount ? undefined : refreshStacksBalance}
+                className="title text-2xl font-bold select-all"
+              >
+                {isNostrLightningAccount && lightningBalance.status !== "available"
+                  ? abbreviateAddress(address, 8)
+                  : primaryBalanceDisplay}
+              </BalanceDisplay>
+              <div className="text-lg">{primaryBalanceLabel}</div>
             </div>
           )}
         </div>
       </div>
 
       {/* Network and Address Info - Only show if not mainnet */}
-      {getPersistedNetwork() !== 'mainnet' && (
-        <div className="mb-16 p-4 bg-muted rounded-lg">
+      {!isNostrLightningAccount && !isBitcoinOnlyAccount && currentNetwork !== 'mainnet' && (
+        <div className="mb-16 p-4 bg-transparent rounded-lg">
           <div className="flex items-center justify-center text-sm">
-            <span className="text-primary text-center uppercase">{getPersistedNetwork()}</span>
+            <span className="text-primary text-center uppercase">{currentNetwork}</span>
           </div>
         </div>
       )}
     
       
-      <div className="grid grid-cols-2 gap-4 mb-8">
+      {isNostrLightningAccount ? (
         <button
-          className="bg-background border border-border text-foreground w-full px-6 py-3 rounded-xl hover:bg-secondary hover:text-secondary-foreground cursor-pointer select-none transition-all duration-200"
-          onClick={() => setShowSend(true)}
+          className="mb-8 w-full bg-transparent border border-border text-foreground px-6 py-3 rounded-xl hover:bg-muted cursor-pointer select-none transition-all duration-200"
+          onClick={() => copyReceiveAddress(address, 'Nostr account')}
+          type="button"
         >
-          Send
-        </button>
+          <LocalizedText>Copy Account
+        </LocalizedText></button>
+      ) : isBitcoinOnlyAccount ? (
         <button
-          className="bg-transparent border border-border text-foreground px-6 py-3 rounded-xl hover:bg-secondary hover:text-secondary-foreground cursor-pointer select-none transition-all duration-200"
+          className="mb-8 w-full bg-transparent border border-border text-foreground px-6 py-3 rounded-xl hover:bg-muted cursor-pointer select-none transition-all duration-200"
           onClick={() => setShowReceive(true)}
         >
-          Receive
+          <LocalizedText>Receive
+        </LocalizedText></button>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          <button
+            className="border border-border bg-transparent text-foreground w-full px-6 py-3 rounded-xl hover:bg-muted cursor-pointer select-none transition-all duration-200"
+            onClick={() => setShowSend(true)}
+          >
+            <LocalizedText>Send
+          </LocalizedText></button>
+          <button
+            className="border border-border bg-transparent text-foreground px-6 py-3 rounded-xl hover:bg-muted cursor-pointer select-none transition-all duration-200"
+            onClick={() => setShowReceive(true)}
+          >
+            <LocalizedText>Receive
+          </LocalizedText></button>
+        </div>
+      )}
+
+      {!isNostrLightningAccount && !isBitcoinOnlyAccount && (
+        <button
+          type="button"
+          className="mb-8 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-transparent px-6 py-3 text-foreground transition-all duration-200 hover:bg-muted"
+          onClick={() => setShowSwap(true)}
+        >
+          <Image src="/swap.svg" alt="" width={18} height={18} aria-hidden="true" />
+          <span><LocalizedText>Swap</LocalizedText></span>
         </button>
+      )}
+
+      <div className="mt-16 w-full">
+        <div className="flex items-center justify-between">
+          {!isNostrLightningAccount && !isBitcoinOnlyAccount && !assetsLoading && (
+            <span className="text-xs text-muted-foreground">{visibleAssetCount} <LocalizedText>assets</LocalizedText></span>
+          )}
+        </div>
+
+        <div className="mt-4 rounded-xl border border-border bg-transparent">
+          {isNostrLightningAccount ? (
+            <div className="space-y-4 p-4">
+              <div className="rounded-xl border border-border bg-transparent p-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Image src={walletType === "nostria" ? '/nostria.svg' : '/alby.svg'} alt={identityProviderLabel} width={28} height={28} />
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold">{identityProviderLabel}</div>
+                    <div className="text-xs text-muted-foreground"><LocalizedText>Nostr account</LocalizedText></div>
+                  </div>
+                </div>
+                <div className="text-right min-w-0">
+                  <div className="text-sm font-mono truncate max-w-40">{address}</div>
+                  <div className="text-xs text-muted-foreground"><LocalizedText>Connected</LocalizedText></div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-transparent p-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <Image src="/icons/lightning.svg" alt="Lightning" width={28} height={28} />
+                  <div>
+                    <div className="text-sm font-semibold"><LocalizedText>Lightning</LocalizedText></div>
+                    <div className="text-xs text-muted-foreground">
+                      {profileLightningAddress || (lightningBalance.status === "unavailable" ? "Provider balance unavailable" : "Wallet balance")}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <BalanceDisplay
+                    loading={lightningBalance.status === "loading"}
+                    unavailable={lightningBalance.status === "unavailable" && !profileLightningAddress}
+                  >
+                    {lightningBalance.status === "available" ? lightningBalance.display : profileLightningAddress ? "Configured" : lightningBalance.display}
+                  </BalanceDisplay>
+                  <div className="text-xs text-muted-foreground">
+                    {lightningBalance.status === "available" ? "Balance" : profileLightningAddress ? "Address set" : "Balance unavailable"}
+                  </div>
+                </div>
+              </div>
+
+              {!profileLightningAddress && (
+                <Link
+                  href="/account#lightning-address"
+                  className="inline-flex w-full items-center justify-center rounded-lg border border-border bg-transparent px-3 py-2 text-sm font-semibold text-foreground transition hover:bg-muted"
+                >
+                  <LocalizedText>Set Lightning Address
+                </LocalizedText></Link>
+              )}
+            </div>
+          ) : (
+          <div className="space-y-4 p-4">
+            <div className="rounded-xl border border-border bg-transparent p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Image src="/btc.svg" alt="Bitcoin" width={28} height={28} />
+                <div>
+                  <div className="text-sm font-semibold"><LocalizedText>Bitcoin</LocalizedText></div>
+                  <div className="text-xs text-muted-foreground"><LocalizedText>BTC</LocalizedText></div>
+                </div>
+              </div>
+              <div className="text-right">
+                <BalanceDisplay loading={btcBalanceLoading} unavailable={btcBalance.value === null} onRefresh={refreshBtcBalance}>
+                  {btcBalanceDisplay}
+                </BalanceDisplay>
+                <div className="text-xs text-muted-foreground"><LocalizedText>Balance</LocalizedText></div>
+              </div>
+            </div>
+
+            {!isBitcoinOnlyAccount && (
+            <>
+            <div className="rounded-xl border border-border bg-transparent p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Image src="/liquid.svg" alt="Liquid" width={28} height={28} />
+                <div>
+                  <div className="text-sm font-semibold"><LocalizedText>Liquid</LocalizedText></div>
+                  <div className="text-xs text-muted-foreground"><LocalizedText>Liquid</LocalizedText></div>
+                </div>
+              </div>
+              <div className="text-right">
+                <BalanceDisplay loading={liquidBalanceLoading} unavailable={liquidBalance.value === null} onRefresh={refreshLiquidBalance}>
+                  {liquidBalanceDisplay}
+                </BalanceDisplay>
+                <div className="text-xs text-muted-foreground"><LocalizedText>Balance</LocalizedText></div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-transparent p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Image src="/rsk.svg" alt="Rootstock" width={28} height={28} />
+                <div>
+                  <div className="text-sm font-semibold"><LocalizedText>Rootstock</LocalizedText></div>
+                  <div className="text-xs text-muted-foreground"><LocalizedText>RSK</LocalizedText></div>
+                </div>
+              </div>
+              <div className="text-right">
+                <BalanceDisplay loading={rskBalanceLoading} unavailable={rskBalance.value === null} onRefresh={refreshRskBalance}>
+                  {rskBalanceDisplay}
+                </BalanceDisplay>
+                <div className="text-xs text-muted-foreground"><LocalizedText>Balance</LocalizedText></div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-transparent p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Image src="/stx.png" alt="Stacks" width={28} height={28} />
+                <div>
+                  <div className="text-sm font-semibold"><LocalizedText>Stacks</LocalizedText></div>
+                  <div className="text-xs text-muted-foreground"><LocalizedText>STX</LocalizedText></div>
+                </div>
+              </div>
+              <div className="text-right">
+                <BalanceDisplay loading={loading} unavailable={stxBalanceUnavailable} onRefresh={refreshStacksBalance}>
+                  {stxBalanceDisplay}
+                </BalanceDisplay>
+                <div className="text-xs text-muted-foreground"><LocalizedText>Balance</LocalizedText></div>
+              </div>
+            </div>
+            </>
+            )}
+          </div>
+          )}
+
+          {!isNostrLightningAccount && !isBitcoinOnlyAccount && assetsLoading ? (
+            <div className="p-4 space-y-3">
+              {[0, 1, 2].map((skeleton) => (
+                <div key={skeleton} className="h-10 rounded-lg bg-transparent animate-pulse" />
+              ))}
+            </div>
+          ) : !isNostrLightningAccount && !isBitcoinOnlyAccount && visibleAssetCount === 0 ? (
+            <div className="p-4 text-sm text-muted-foreground hidden"><LocalizedText>No assets detected for this wallet yet.</LocalizedText></div>
+          ) : !isNostrLightningAccount && !isBitcoinOnlyAccount ? (
+            <ul>
+              {visibleAssets.map((asset) => (
+                <li
+                  key={asset.id}
+                  className="flex items-center justify-between px-4 py-3 border-b border-border/60 last:border-b-0"
+                >
+                  <div>
+                    <div className="font-semibold tracking-wide">{asset.symbol}</div>
+                    <div className="text-xs text-muted-foreground">{asset.name}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-mono text-sm">{asset.formattedBalance}</div>
+                    <div className="text-[11px] uppercase text-muted-foreground">
+                      {asset.type === "stx" ? "Stacks" : "Token"}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       </div>
 
-
       {/* Send Modal */}
+      {showSwap && (
+        <BitflowSwapPanel
+          address={address}
+          walletType={walletType}
+          network={currentNetwork}
+          onClose={() => setShowSwap(false)}
+          onComplete={() => {
+            window.setTimeout(refreshStacksBalance, 5_000);
+          }}
+        />
+      )}
+
       {showSend && (
-        <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
-          <div className="bg-background text-foreground p-6 rounded-2xl border border-foreground shadow-xl w-full max-w-sm">
-            <div className="flex items-center justify-end">
-                <button onClick={() => setShowSend(false)}
-                    className="bg-none border-none text-[#555] text-xl cursor-pointer" aria-label="Close" type="button">
-                <X className="h-[18px]"/>
-                </button>
+        <div
+          className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/50 px-4 pb-4 pt-20 backdrop-blur-sm sm:items-center sm:py-6"
+          onClick={() => {
+            if (!sendLoading) closeSendModal();
+          }}
+        >
+          <div
+            className="flex max-h-[calc(100dvh-6rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-white text-black shadow-xl dark:bg-background dark:text-foreground sm:max-h-[calc(100dvh-3rem)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 p-6 pb-4 border-b border-border/60">
+              <div>
+                <h2 className="text-xl font-semibold"><LocalizedText>Send Bitcoin</LocalizedText></h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {selectedSendAsset.networkLabel}
+                  {currentNetwork !== 'mainnet' && sendAsset === "sbtc" && (
+                    <span className="ml-1 font-mono uppercase">{currentNetwork}</span>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={closeSendModal}
+                className="bg-transparent border-none text-muted-foreground hover:text-foreground text-xl cursor-pointer disabled:opacity-40"
+                aria-label="Close"
+                type="button"
+                disabled={sendLoading}
+              >
+                <X className="h-[20px]" />
+              </button>
             </div>
-            <form onSubmit={handleSend} className="space-y-6 mt-6">
+
+            <form onSubmit={handleSend} className="min-h-0 space-y-5 overflow-y-auto overscroll-contain px-6 py-5">
               <div>
-                <input
-                  className="w-full px-6 py-3 rounded-xl border border-foreground bg-background text-foreground focus:outline-none"
-                  value={sendTo}
-                  onChange={e => setSendTo(e.target.value)}
-                  required
-                  placeholder="SP..XYZ"
+                <label className="block text-sm font-medium mb-2" htmlFor="send-asset">
+                  <LocalizedText>Asset
+                </LocalizedText></label>
+                <select
+                  id="send-asset"
+                  className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/60"
+                  value={sendAsset}
+                  onChange={(event) => setSendAsset(event.target.value as SendAsset)}
                   disabled={sendLoading}
-                />
+                >
+                  {SEND_ASSETS.map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {asset.label} - {getSendAssetBalanceDisplay(asset.id)}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              <div className="rounded-xl border border-border bg-transparent p-4 text-sm">
+                <p className="font-medium">{sendMethodTitle}</p>
+                <p className="text-muted-foreground mt-1 text-xs leading-relaxed">{sendMethodDescription}</p>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  <LocalizedText>Available balance:
+                  </LocalizedText><BalanceDisplay
+                    loading={selectedAssetBalanceLoading}
+                    unavailable={selectedAssetBalanceUnavailable}
+                    onRefresh={refreshSelectedSendAssetBalance}
+                    className="ml-1 align-middle text-xs font-semibold"
+                  >
+                    {selectedAssetBalanceDisplay}
+                  </BalanceDisplay>
+                </p>
+              </div>
+
               <div>
-                <input
-                  className="w-full px-6 py-8 rounded-xl border border-foreground bg-background text-foreground focus:outline-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:m-0 text-right text-xl"
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={sendAmount}
-                  onChange={e => setSendAmount(e.target.value)}
-                  required
-                  placeholder="Amount"
-                  disabled={sendLoading}
-                  style={{ MozAppearance: "textfield" } as React.CSSProperties}
-                />
-              </div>
-              {/* Only show password input if not using extension or extension is not available */}
-              {!extensionAvailable && (
-                <div>
+                <label className="block text-sm font-medium mb-2" htmlFor="send-recipient">
+                  <LocalizedText>Recipient Address
+                </LocalizedText></label>
+                <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-2">
                   <input
-                    className="w-full px-6 py-3 rounded-xl border border-foreground bg-background text-foreground focus:outline-none"
+                    id="send-recipient"
+                    className={`min-w-0 w-full px-4 py-3 rounded-xl border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/60 ${recipientError ? 'border-destructive/70' : 'border-border'}`}
+                    value={sendTo}
+                    onChange={e => setSendTo(e.target.value)}
+                    required
+                    placeholder={selectedSendAsset.placeholder}
+                    disabled={sendLoading}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:border-foreground hover:text-foreground transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    onClick={handlePasteRecipient}
+                    disabled={sendLoading}
+                    aria-label="Paste address from clipboard"
+                  >
+                    <LocalizedText>Paste
+                  </LocalizedText></button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">{selectedSendAsset.recipientHint}</p>
+                {recipientError && (
+                  <p className="text-xs text-destructive mt-2">{recipientError}</p>
+                )}
+                {unsupportedSendAssetMessage && (
+                  <p className="text-xs text-amber-600 dark:text-amber-300 mt-2">{unsupportedSendAssetMessage}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2" htmlFor="send-amount">
+                  <LocalizedText>Amount
+                </LocalizedText></label>
+                <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-2">
+                  <input
+                    id="send-amount"
+                    className={`min-w-0 w-full px-4 py-3 rounded-xl border bg-background text-foreground text-right text-2xl focus:outline-none focus:ring-2 focus:ring-primary/60 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${amountError ? 'border-destructive/70' : 'border-border'}`}
+                    type="number"
+                    min={sendAsset === "sbtc" ? 1 : sendAsset === "bitcoin" || sendAsset === "liquid" ? 0.00000001 : sendAsset === "rootstock" ? 0.000000000000000001 : 0}
+                    step={sendAsset === "sbtc" ? 1 : sendAsset === "bitcoin" || sendAsset === "liquid" ? 0.00000001 : sendAsset === "rootstock" ? 0.000000000000000001 : "any"}
+                    value={sendAmount}
+                    onChange={e => setSendAmount(e.target.value)}
+                    required
+                    placeholder={sendAsset === "sbtc" ? '1000' : sendAsset === "bitcoin" || sendAsset === "liquid" ? '0.00000000' : sendAsset === "rootstock" ? '0.000000000000000000' : '0.0'}
+                    disabled={sendLoading}
+                    style={{ MozAppearance: "textfield" } as React.CSSProperties}
+                  />
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:border-foreground hover:text-foreground transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    onClick={() => handleQuickFillValue(maxFillValue)}
+                    disabled={sendLoading || !maxFillValue}
+                  >
+                    <LocalizedText>Max
+                  </LocalizedText></button>
+                </div>
+                <div className="flex items-center justify-between text-xs mt-2 text-muted-foreground">
+                  <span>{sendAsset === "sbtc" ? "Minimum 1 sat" : sendAsset === "bitcoin" ? "Amount in BTC" : sendAsset === "liquid" ? "Amount in L-BTC" : sendAsset === "rootstock" ? "Amount in RBTC" : `Amount in ${selectedSendAsset.unit}`}</span>
+                  <span className="inline-flex items-center gap-1">
+                    <LocalizedText>Available
+                    </LocalizedText><BalanceDisplay
+                      loading={selectedAssetBalanceLoading}
+                      unavailable={selectedAssetBalanceUnavailable}
+                      onRefresh={refreshSelectedSendAssetBalance}
+                      className="text-xs"
+                    >
+                      {selectedAssetBalanceDisplay}
+                    </BalanceDisplay>
+                  </span>
+                </div>
+                {quickFillOptions.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {quickFillOptions.map(option => (
+                      <button
+                        key={option.label}
+                        type="button"
+                        className="px-3 py-1.5 rounded-full border border-border text-xs font-semibold text-muted-foreground hover:border-foreground hover:text-foreground transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={() => handleQuickFillValue(option.value)}
+                        disabled={sendLoading}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {amountError && (
+                  <p className="text-xs text-destructive mt-2">{amountError}</p>
+                )}
+              </div>
+
+              {supportsMemo && (
+                <div>
+                  <label className="block text-sm font-medium mb-2" htmlFor="send-memo">
+                    <LocalizedText>Memo (optional)
+                  </LocalizedText></label>
+                  <textarea
+                    id="send-memo"
+                    className={`w-full px-4 py-3 rounded-xl border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/60 resize-none ${memoError ? 'border-destructive/70' : 'border-border'}`}
+                    rows={2}
+                    maxLength={120}
+                    value={sendMemo}
+                    onChange={e => setSendMemo(e.target.value)}
+                    placeholder="Add a note for your records"
+                    disabled={sendLoading}
+                  />
+                  <div className="flex items-center justify-between text-xs mt-2">
+                    <span className={memoError ? 'text-destructive' : 'text-muted-foreground'}>
+                      {memoByteLength}/{MAX_MEMO_BYTES} <LocalizedText>bytes
+                    </LocalizedText></span>
+                    {!memoError && (
+                      <span className="text-muted-foreground">
+                        <LocalizedText>Memo limit enforced by the sBTC contract
+                      </LocalizedText></span>
+                    )}
+                  </div>
+                  {memoError && <p className="text-xs text-destructive mt-2">{memoError}</p>}
+                </div>
+              )}
+
+              {(sendAmount || trimmedRecipient) && (
+                <div className="rounded-2xl border border-border bg-transparent p-4 text-sm">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground"><LocalizedText>Network</LocalizedText></span>
+                    <span className="font-mono uppercase">{currentNetwork}</span>
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-muted-foreground"><LocalizedText>Recipient</LocalizedText></span>
+                    <span className={`font-mono text-xs ${trimmedRecipient ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      {summaryRecipientDisplay}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-muted-foreground"><LocalizedText>Amount</LocalizedText></span>
+                    <span className="font-semibold text-lg">{sendAmount || '0'} {selectedSendAsset.unit}</span>
+                  </div>
+                  {remainingBalanceDisplay && (
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
+                      <span><LocalizedText>Remaining balance</LocalizedText></span>
+                      <span>{remainingBalanceDisplay} {selectedSendAsset.unit}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mt-3">
+                    <span><LocalizedText>Method</LocalizedText></span>
+                    <span>{sendAsset === "bitcoin" && !isLocalWallet || extensionAvailable && sendAsset === "sbtc" ? "Browser extension" : "Encrypted wallet"}</span>
+                  </div>
+                </div>
+              )}
+
+              {selectedAssetNeedsPassword && selectedSendAsset.supported && (
+                <div>
+                  <label className="block text-sm font-medium mb-2" htmlFor="send-password">
+                    <LocalizedText>Wallet Password
+                  </LocalizedText></label>
+                  <input
+                    id="send-password"
+                    className={`w-full px-4 py-3 rounded-xl border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/60 ${passwordError ? 'border-destructive/70' : 'border-border'}`}
                     type="password"
                     value={sendPassword}
                     onChange={e => setSendPassword(e.target.value)}
                     required
-                    placeholder="Wallet password"
+                    placeholder="Enter the password you created"
                     disabled={sendLoading}
+                    autoComplete="current-password"
                   />
+                  <p className="text-xs text-muted-foreground mt-2"><LocalizedText>Required to decrypt and sign with your local wallet.</LocalizedText></p>
+                  {passwordError && <p className="text-xs text-destructive mt-2">{passwordError}</p>}
                 </div>
               )}
-              <div>
-                <button
-                  type="submit"
-                  className="w-full py-3 px-4 rounded-xl border-[1px] border-foreground bg-background text-foreground transition-all duration-200 focus:outline-none cursor-pointer select-none"
-                  disabled={sendLoading}
-                >
-                  {sendLoading ? (extensionAvailable ? 'Sending via Extension...' : 'Sending...') : 'Send'}
-                </button>
-              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 px-4 rounded-xl border border-border bg-transparent text-foreground transition-all duration-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-muted"
+                disabled={sendLoading || !sendFormValid}
+              >
+                {sendLoading ? (sendAsset === "bitcoin" && !isLocalWallet || extensionAvailable && sendAsset === "sbtc" ? "Sending via extension..." : "Sending...") : sendActionLabel}
+              </button>
             </form>
           </div>
         </div>
@@ -377,96 +2206,334 @@ export default function WalletPage() {
 
       {/* Receive Modal */}
       {showReceive && (
-        <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
-          <div className="bg-background text-foreground p-8 rounded-2xl border border-[#333] shadow-xl w-full max-w-sm text-center">
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/50 px-4 pb-4 pt-20 backdrop-blur-sm sm:items-center sm:py-6"
+          onClick={closeReceiveModal}
+        >
+          <div
+            className="max-h-[calc(100dvh-6rem)] w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl border border-border bg-white p-6 text-center text-black shadow-xl dark:bg-background dark:text-foreground sm:max-h-[calc(100dvh-3rem)] sm:p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-end">
               <button
-                onClick={() => setShowReceive(false)}
-                className="bg-none border-none text-[#555] text-xl cursor-pointer"
+                onClick={closeReceiveModal}
+                className="bg-transparent border-none text-muted-foreground hover:text-foreground text-xl cursor-pointer"
                 aria-label="Close"
                 type="button"
               >
                 <X className="h-[18px]" />
               </button>
             </div>
-            <h2 className="text-xl font-bold mb-6">Receive</h2>
+            <h2 className="text-xl font-bold mb-6"><LocalizedText>Receive </LocalizedText>{selectedReceiveLabel}</h2>
             <div className="mb-6">
-              {address ? (
-                <div className="w-full p-6 flex items-center justify-center rounded-xl bg-background">
+              {selectedReceiveAddress ? (
+                <div className="w-full p-6 flex items-center justify-center rounded-xl bg-white">
                   <QRCodeSVG
-                    value={address}
+                    value={selectedReceiveAddress}
                     width="100%"
                     height="100%"
                     size={256}
-                    bgColor="#fff"
-                    fgColor="#181818"
+                    bgColor="#ffffff"
+                    fgColor="#000000"
                     includeMargin={false}
                     level="M"
                     style={{ width: "100%", height: "auto", maxWidth: 256, maxHeight: 256 }}
                   />
                 </div>
               ) : (
-                <div className="w-32 h-32 mx-auto bg-gray-800 flex items-center justify-center rounded-xl text-gray-400">
-                  QR
+                <div className="w-full min-h-56 mx-auto bg-transparent flex flex-col items-center justify-center gap-3 rounded-xl text-muted-foreground">
+                  {btcAddressLoading ? (
+                    <LoaderCircle className="animate-spin" size={28} />
+                  ) : (
+                    <>
+                      <div className="text-sm"><LocalizedText>No </LocalizedText>{selectedReceiveLabel} <LocalizedText>address yet</LocalizedText></div>
+                      {receiveAsset !== "stacks" && !isBitcoinOnlyAccount && (
+                        <button
+                          type="button"
+                          className="rounded-lg border border-border bg-transparent px-4 py-2 text-xs font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                          onClick={() => openGenerateAddressModal(receiveAsset)}
+                          disabled={generatingAddresses}
+                        >
+                          <LocalizedText>Generate </LocalizedText>{selectedReceiveLabel} <LocalizedText>Address
+                        </LocalizedText></button>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-light px-8 py-2 rounded-xl text-sm break-all select-text">{address}</span>
-                
+            <div className="space-y-4">
+              {isOkxBitcoinAccount ? (
+                <div className="grid gap-3 text-left">
+                  {(okxBitcoinAccounts.length > 0
+                    ? okxBitcoinAccounts
+                    : [{ address: address || '', addressType: 'unknown', label: 'Bitcoin' } satisfies OkxBitcoinAccount]
+                  ).filter((account) => account.address).map((account) => {
+                    const selected = (selectedOkxBitcoinAddress || primaryReceiveAddress) === account.address;
+                    return (
+                      <div
+                        key={`${account.addressType}-${account.address}`}
+                        role="button"
+                        tabIndex={0}
+                        className={`p-4 rounded-2xl border text-left text-sm transition ${selected ? 'border-foreground bg-transparent text-foreground' : 'border-border bg-transparent hover:bg-muted'}`}
+                        onClick={() => setSelectedOkxBitcoinAddress(account.address)}
+                        onKeyDown={(event) => {
+                          if (event.target !== event.currentTarget) return;
+                          if (event.key !== "Enter" && event.key !== ' ') return;
+                          event.preventDefault();
+                          setSelectedOkxBitcoinAddress(account.address);
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <Image src="/btc.svg" alt="Bitcoin" width={28} height={28} />
+                            <div className="min-w-0">
+                              <div className="font-semibold">{account.label}</div>
+                              <div className="font-mono text-xs text-muted-foreground">{abbreviateMiddle(account.address)}</div>
+                            </div>
+                          </div>
+                          <button
+                            className={getReceiveCopyButtonClass('bitcoin')}
+                            type="button"
+                            aria-label={`Copy ${account.label} address`}
+                            onClick={async (event) => {
+                              event.stopPropagation();
+                              await copyReceiveAddress(account.address, account.label);
+                            }}
+                          >
+                            <Copy size={18} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+              <div
+                role="button"
+                tabIndex={0}
+                className={`w-full rounded-2xl border p-4 text-left transition ${receiveAsset === "bitcoin" ? 'border-foreground bg-transparent text-foreground' : 'border-border bg-transparent hover:bg-muted'}`}
+                onClick={() => setReceiveAsset('bitcoin')}
+                onKeyDown={(event) => handleReceiveAssetKeyDown(event, 'bitcoin')}
+              >
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground"><LocalizedText>Bitcoin L1</LocalizedText></span>
+                  {!btcAddressLoading && !primaryReceiveAddress && !isBitcoinOnlyAccount && (
+                    <button
+                      type="button"
+                      className="rounded-lg border h-full border-border bg-transparent px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openGenerateAddressModal('bitcoin');
+                      }}
+                      disabled={generatingAddresses}
+                    >
+                      <LocalizedText>Generate
+                    </LocalizedText></button>
+                  )}
+                </div>
+                {btcAddressLoading ? (
+                  <div className="text-sm"><LocalizedText>Loading address...</LocalizedText></div>
+                ) : primaryReceiveAddress ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-sm break-all">{primaryReceiveAddress}</span>
+                    <button
+                      className={getReceiveCopyButtonClass('bitcoin')}
+                      type="button"
+                      aria-label="Copy Bitcoin address"
+                      onClick={async (event) => {
+                        event.stopPropagation();
+                        await copyReceiveAddress(primaryReceiveAddress, 'Bitcoin');
+                      }}
+                    >
+                      <Copy size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-sm text-destructive">{btcAddressError || "No Bitcoin address available."}</div>
+                )}
               </div>
-              <button
-                  className="text-center text-foreground text-sm p-1 rounded transition"
-                  onClick={() => {
-                    if (address) {
-                      navigator.clipboard.writeText(address);
-                      toast.success("Address copied!");
-                    }
-                  }}
-                  aria-label="Copy address"
-                  type="button"
+              )}
+
+              {!isBitcoinOnlyAccount && (
+              <div className="grid gap-3 text-left">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className={`p-4 rounded-2xl border text-left text-sm transition ${receiveAsset === "stacks" ? 'border-foreground bg-transparent text-foreground' : 'border-border bg-transparent text-foreground hover:bg-muted'}`}
+                  onClick={() => setReceiveAsset('stacks')}
+                  onKeyDown={(event) => handleReceiveAssetKeyDown(event, 'stacks')}
                 >
-                  <Copy size={18} className="text-accent-foreground cursor-pointer"/>
-                </button>
+                  <div className="mb-2 text-[11px] uppercase tracking-[0.24em] text-muted-foreground"><LocalizedText>Stacks</LocalizedText></div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-sm break-all">{address}</span>
+                    <button
+                      className={getReceiveCopyButtonClass('stacks')}
+                      type="button"
+                      aria-label="Copy Stacks address"
+                      onClick={async (event) => {
+                        event.stopPropagation();
+                        await copyReceiveAddress(address, 'Stacks');
+                      }}
+                    >
+                      <Copy size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className={`p-4 rounded-2xl border text-left text-sm transition ${receiveAsset === "rootstock" ? 'border-foreground bg-transparent text-foreground' : 'border-border bg-transparent text-foreground hover:bg-muted'}`}
+                  onClick={() => setReceiveAsset('rootstock')}
+                  onKeyDown={(event) => handleReceiveAssetKeyDown(event, 'rootstock')}
+                >
+                  {rskAddress ? (
+                    <>
+                      <div className="mb-2 text-[11px] uppercase tracking-[0.24em] text-muted-foreground"><LocalizedText>Rootstock</LocalizedText></div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-sm break-all">{rskAddress}</span>
+                        <button
+                          className={getReceiveCopyButtonClass('rootstock')}
+                          type="button"
+                          aria-label="Copy Rootstock address"
+                          onClick={async (event) => {
+                            event.stopPropagation();
+                            await copyReceiveAddress(rskAddress, 'Rootstock');
+                          }}
+                        >
+                          <Copy size={18} />
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-stretch justify-between gap-4">
+                      <div className="min-w-0 py-1">
+                        <div className="mb-3 text-[11px] uppercase tracking-[0.24em] text-muted-foreground"><LocalizedText>Rootstock</LocalizedText></div>
+                        <div className="text-sm text-muted-foreground"><LocalizedText>Not configured.</LocalizedText></div>
+                      </div>
+                      <button
+                        type="button"
+                        className="self-stretch rounded-lg border border-border bg-transparent px-4 text-xs font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openGenerateAddressModal('rootstock');
+                        }}
+                        disabled={generatingAddresses}
+                      >
+                        <LocalizedText>Generate
+                      </LocalizedText></button>
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className={`p-4 rounded-2xl border text-left text-sm transition ${receiveAsset === "liquid" ? 'border-foreground bg-transparent text-foreground' : 'border-border bg-transparent text-foreground hover:bg-muted'}`}
+                  onClick={() => setReceiveAsset('liquid')}
+                  onKeyDown={(event) => handleReceiveAssetKeyDown(event, 'liquid')}
+                >
+                  {liquidAddress ? (
+                    <>
+                      <div className="mb-2 text-[11px] uppercase tracking-[0.24em] text-muted-foreground"><LocalizedText>Liquid</LocalizedText></div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-sm break-all">{liquidAddress}</span>
+                        <button
+                          className={getReceiveCopyButtonClass('liquid')}
+                          type="button"
+                          aria-label="Copy Liquid address"
+                          onClick={async (event) => {
+                            event.stopPropagation();
+                            await copyReceiveAddress(liquidAddress, 'Liquid');
+                          }}
+                        >
+                          <Copy size={18} />
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-stretch justify-between gap-4">
+                      <div className="min-w-0 py-1">
+                        <div className="mb-3 text-[11px] uppercase tracking-[0.24em] text-muted-foreground"><LocalizedText>Liquid</LocalizedText></div>
+                        <div className="text-sm text-muted-foreground"><LocalizedText>Not configured.</LocalizedText></div>
+                      </div>
+                      <button
+                        type="button"
+                        className="self-stretch rounded-lg border border-border bg-transparent px-4 text-xs font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openGenerateAddressModal('liquid');
+                        }}
+                        disabled={generatingAddresses}
+                      >
+                        <LocalizedText>Generate
+                      </LocalizedText></button>
+                    </div>
+                  )}
+                </div>
+              </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
+      {generateAddressAuthMode === 'unlock' ? (
+        <PasswordSigningModal
+          isOpen={showGenerateAddressesModal}
+          onClose={closeGenerateAddressModal}
+          onSign={handleGenerateAddress}
+          title={`Generate ${generateAddressLayer ? RECEIVE_LAYER_LABELS[generateAddressLayer] : "Receive"} Address`}
+          description={`Enter your wallet password to decrypt the local private key and generate ${generateAddressLayer ? `your ${RECEIVE_LAYER_LABELS[generateAddressLayer]}` : "the selected"} receive address in this browser.`}
+          actionText="Generate"
+          isLoading={generatingAddresses}
+        />
+      ) : (
+        <CreatePasskeyAddressModal
+          isOpen={showGenerateAddressesModal}
+          onClose={closeGenerateAddressModal}
+          onSubmit={handleCreatePasskeyAndGenerateAddress}
+          title={`Create Passkey Account`}
+          description={`Create a passkey account with your email and password to generate ${generateAddressLayer ? `your ${RECEIVE_LAYER_LABELS[generateAddressLayer]}` : "the selected"} receive address.`}
+          error={createPasskeyError}
+          isLoading={generatingAddresses}
+        />
+      )}
+
       {/* Recent Transactions */}
       <div className="mt-10">
-        <h2 className="text-lg font-semibold mb-4">Recent Transactions</h2>
-        <div className="bg-card rounded-xl py-4 max-h-96 overflow-y-auto border border-border">
+        <h2 className="text-lg font-semibold mb-4"><LocalizedText>Recent Transactions</LocalizedText></h2>
+        <div className="bg-background rounded-xl py-4 max-h-96 overflow-y-auto border border-border">
           {txLoading ? (
             <div className="flex justify-center items-center py-8">
               <LoaderCircle className="animate-spin text-foreground" size={32} />
             </div>
           ) : transactions.length === 0 ? (
-            <div className="text-center text-muted-foreground py-8">No recent transactions found.</div>
+            <div className="text-center text-muted-foreground py-8"><LocalizedText>No recent transactions found.</LocalizedText></div>
           ) : (
-            <ul className="space-y-4">
+            <ul className="space-4 mx-4">
               {transactions.map((tx) => (
                 <li key={tx.tx_id} className="border-b border-border last:border-b-0 pb-3">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="font-mono text-xs text-muted-foreground break-all">
-                        <a href={`https://explorer.hiro.so/txid/${tx.tx_id}?chain=${getPersistedNetwork()}`}
+                        <a href={`https://explorer.hiro.so/txid/${tx.tx_id}?chain=${currentNetwork}`}
                           target="_blank" rel="noopener noreferrer"
-                          className="hover:underline text-primary">
+                          className="text-accent hover:text-accent/80 hover:underline">
                           {tx.tx_id.slice(0, 10)}...{tx.tx_id.slice(-8)}
                         </a>
                       </div>
                       <div className="text-sm mt-1">
-                        {tx.tx_type === 'token_transfer' ? (
+                        {tx.tx_type === "token_transfer" ? (
                           <>
-                            <span className="font-semibold">{tx.sender_address === address ? 'Sent' : 'Received'}</span>
+                            <span className="font-semibold">{tx.sender_address === address ? "Sent" : "Received"}</span>
                             {tx.sender_address === address ? (
-                              <> to <span className="font-mono">{tx.token_transfer?.recipient_address?.slice(0, 8)}...{tx.token_transfer?.recipient_address?.slice(-6)}</span></>
+                              <> <LocalizedText>to </LocalizedText><span className="font-mono">{tx.token_transfer?.recipient_address?.slice(0, 8)}...{tx.token_transfer?.recipient_address?.slice(-6)}</span></>
                             ) : (
-                              <> from <span className="font-mono">{tx.sender_address.slice(0, 8)}...{tx.sender_address.slice(-6)}</span></>
+                              <> <LocalizedText>from </LocalizedText><span className="font-mono">{tx.sender_address.slice(0, 8)}...{tx.sender_address.slice(-6)}</span></>
                             )}
-                            <span className="ml-2">{tx.token_transfer?.amount ? Number(tx.token_transfer.amount) / 1e6 : ''} STX</span>
+                            <span className="ml-2">{tx.token_transfer?.amount ? Number(tx.token_transfer.amount) / 1e6 : ''} <LocalizedText>STX</LocalizedText></span>
                           </>
                         ) : (
                           <span className="text-gray-500">{tx.tx_type.replace(/_/g, ' ')}</span>

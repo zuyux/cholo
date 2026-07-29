@@ -86,7 +86,7 @@ export default function RecoverWalletPage() {
         const passwordHash = CryptoJS.SHA256(password).toString();
         
         // Store wallet data with password protection
-        localStorage.setItem('kapu_session', JSON.stringify({
+        localStorage.setItem('cholo_session', JSON.stringify({
           stxPrivateKey: data.wallet.stxPrivateKey,
           address: data.wallet.address,
           createdAt: Date.now(),
@@ -95,14 +95,14 @@ export default function RecoverWalletPage() {
         }));
 
         // Store authentication in sessionStorage (expires when browser tab closes)
-        const passwordAuthKey = `kapu_password_auth_${data.wallet.address}`;
+        const passwordAuthKey = `cholo_password_auth_${data.wallet.address}`;
         sessionStorage.setItem(passwordAuthKey, JSON.stringify({
           hash: passwordHash,
           authenticatedAt: Date.now()
         }));
 
         // Dispatch event to update other components
-        window.dispatchEvent(new Event('kapu-session-update'));
+        window.dispatchEvent(new Event('cholo-session-update'));
 
         // Redirect to wallet page
         router.push('/wallet');

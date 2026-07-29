@@ -23,7 +23,7 @@ export function checkSession(): PasswordSession {
   }
 
   try {
-    const session = localStorage.getItem('kapu_session');
+    const session = localStorage.getItem('cholo_session');
     if (!session) {
       return { isPasswordProtected: false, requiresPassword: false };
     }
@@ -32,7 +32,7 @@ export function checkSession(): PasswordSession {
     
     if (sessionData.passwordProtected && sessionData.passwordHash) {
       // Check if password authentication is still valid (you could add expiration logic here)
-      const passwordAuthKey = `kapu_password_auth_${sessionData.address}`;
+      const passwordAuthKey = `cholo_password_auth_${sessionData.address}`;
       const passwordAuth = sessionStorage.getItem(passwordAuthKey);
       
       if (!passwordAuth) {
@@ -88,7 +88,7 @@ export function authenticateSession(password: string, sessionData: SessionData):
   
   if (passwordHash === sessionData.passwordHash) {
     // Store authentication in sessionStorage (expires when browser tab closes)
-    const passwordAuthKey = `kapu_password_auth_${sessionData.address}`;
+    const passwordAuthKey = `cholo_password_auth_${sessionData.address}`;
     sessionStorage.setItem(passwordAuthKey, JSON.stringify({
       hash: passwordHash,
       authenticatedAt: Date.now()
@@ -104,7 +104,7 @@ export function authenticateSession(password: string, sessionData: SessionData):
  */
 export function clearPasswordAuth(address: string) {
   if (typeof window !== "undefined") {
-    const passwordAuthKey = `kapu_password_auth_${address}`;
+    const passwordAuthKey = `cholo_password_auth_${address}`;
     sessionStorage.removeItem(passwordAuthKey);
   }
 }

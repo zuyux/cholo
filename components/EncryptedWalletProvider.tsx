@@ -22,12 +22,13 @@ import {
   extendSession as libExtendSession,
   WalletData
 } from '@/lib/encryptedStorage';
+import { getNostrPublicKeyFromPrivateKey } from '@/lib/nostr';
 import { DevnetWallet, devnetWallets } from '@/lib/devnet-wallet-context';
 
 export interface EncryptedWalletContextType {
   // Wallet state
   currentWallet: WalletData | null;
-  walletInfo: { address: string; label: string; createdAt: number } | null;
+  walletInfo: { address: string; label: string; createdAt: number; bitcoinAddress?: string; rootstockAddress?: string; liquidAddress?: string; nostrPublicKey?: string } | null;
   isWalletEncrypted: boolean;
   isSessionLocked: boolean;
   
@@ -38,7 +39,7 @@ export interface EncryptedWalletContextType {
   
   // Actions
   createEncryptedWallet: (walletData: WalletData, passphrase: string) => Promise<void>;
-  unlockWallet: (passphrase: string) => Promise<void>;
+  unlockWallet: (passphrase: string) => Promise<WalletData>;
   lockWallet: () => void;
   deleteWallet: () => void;
   changePassphrase: (oldPassphrase: string, newPassphrase: string) => Promise<void>;
@@ -60,11 +61,11 @@ const EncryptedWalletContext = createContext<EncryptedWalletContextType>({
   isAuthenticated: false,
   authError: null,
   isLoading: false,
-  createEncryptedWallet: async () => {},
-  unlockWallet: async () => {},
+  createEncryptedWallet: async () => { return Promise.reject(new Error('createEncryptedWallet not implemented')) as never; },
+  unlockWallet: async () => { return Promise.reject(new Error('unlockWallet not implemented')) as never; },
   lockWallet: () => {},
   deleteWallet: () => {},
-  changePassphrase: async () => {},
+  changePassphrase: async () => { return Promise.reject(new Error('changePassphrase not implemented')) as never; },
   extendSession: () => {},
   checkSessionExpiry: () => {},
   setDevnetWallet: () => {},
@@ -77,7 +78,7 @@ interface ProviderProps {
 
 export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
   const [currentWallet, setCurrentWallet] = useState<WalletData | null>(null);
-  const [walletInfo, setWalletInfo] = useState<{ address: string; label: string; createdAt: number } | null>(null);
+  const [walletInfo, setWalletInfo] = useState<{ address: string; label: string; createdAt: number; bitcoinAddress?: string; rootstockAddress?: string; liquidAddress?: string; nostrPublicKey?: string } | null>(null);
   const [isWalletEncrypted, setIsWalletEncrypted] = useState(false);
   const [isSessionLocked, setIsSessionLocked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -101,25 +102,22 @@ export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
         // Try to restore active session without passphrase
         const restoredWallet = tryRestoreSession();
         if (restoredWallet && isSessionActive()) {
-          console.log('Restored encrypted wallet session:', { address: restoredWallet.address });
           setCurrentWallet(restoredWallet);
           setIsAuthenticated(true);
           setIsSessionLocked(false);
         } else {
-          // Check session status
+          setCurrentWallet(null);
+          setIsAuthenticated(false);
           setIsSessionLocked(checkSessionLocked());
           
-          // Check for session expiry
-          const expired = autoLockIfExpired();
-          if (expired) {
+          // Check for session expiry and lock if needed
+          if (autoLockIfExpired()) {
             setIsSessionLocked(true);
-            setIsAuthenticated(false);
-            setCurrentWallet(null);
           }
         }
       } else {
         // Check for legacy devnet wallets in development
-        const networkEnv = process.env.NEXT_PUBLIC_STACKS_NETWORK || 'mainnet';
+        const networkEnv = process.env.NEXT_PUBLIC_STACKS_NETWORK || 'testnet';
         if (networkEnv === 'devnet') {
           setDevnetWallet(devnetWallets[0]); // Auto-select deployer for devnet
         }
@@ -128,57 +126,95 @@ export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
 
     initialize();
 
-    // Listen for storage events
+    // Listen for session events and cross-tab storage updates
     const handleStorageEvents = (event: Event) => {
       switch (event.type) {
-        case 'cholo-encrypted-session-created':
+        case 'bbox-encrypted-session-created':
           setIsWalletEncrypted(true);
           setWalletInfo(getWalletInfo());
           setIsAuthenticated(true);
           setIsSessionLocked(false);
           break;
-        case 'cholo-session-locked':
+        case 'bbox-session-locked':
           setIsSessionLocked(true);
           setIsAuthenticated(false);
           setCurrentWallet(null);
           break;
-        case 'cholo-session-unlocked':
+        case 'bbox-session-unlocked':
           setIsSessionLocked(false);
           break;
-        case 'cholo-session-deleted':
+        case 'bbox-session-deleted':
           setIsWalletEncrypted(false);
           setWalletInfo(null);
           setIsAuthenticated(false);
           setCurrentWallet(null);
           setIsSessionLocked(false);
           break;
-        case 'cholo-session-accessed':
+        case 'bbox-session-accessed':
           // Session activity detected, could update UI indicators
+          break;
+        case 'bbox-encrypted-wallet-updated':
+          setWalletInfo(getWalletInfo());
+          setCurrentWallet((wallet) => {
+            const info = getWalletInfo();
+            if (!wallet || !info) return wallet;
+            return {
+              ...wallet,
+              bitcoinAddress: info.bitcoinAddress,
+              rootstockAddress: info.rootstockAddress,
+              liquidAddress: info.liquidAddress,
+              nostrPublicKey: info.nostrPublicKey,
+            };
+          });
           break;
       }
     };
 
+    const handleNativeStorage = (event: StorageEvent) => {
+      if (event.storageArea !== localStorage) return;
+      const watchedKeys = ['cholo_encrypted_session', 'cholo_session_locked', 'cholo_session_config', 'cholo_session'];
+      if (!event.key || !watchedKeys.includes(event.key)) return;
+
+      const hasWallet = hasEncryptedWallet();
+      setIsWalletEncrypted(hasWallet);
+      setWalletInfo(getWalletInfo());
+
+      if (hasWallet && isSessionActive()) {
+        const restoredWallet = tryRestoreSession();
+        setCurrentWallet(restoredWallet);
+        setIsAuthenticated(true);
+        setIsSessionLocked(false);
+      } else {
+        setCurrentWallet(null);
+        setIsAuthenticated(false);
+        setIsSessionLocked(checkSessionLocked());
+      }
+    };
+
     // Add event listeners
-    window.addEventListener('cholo-encrypted-session-created', handleStorageEvents);
-    window.addEventListener('cholo-session-locked', handleStorageEvents);
-    window.addEventListener('cholo-session-unlocked', handleStorageEvents);
-    window.addEventListener('cholo-session-deleted', handleStorageEvents);
-    window.addEventListener('cholo-session-accessed', handleStorageEvents);
+    window.addEventListener('bbox-encrypted-session-created', handleStorageEvents);
+    window.addEventListener('bbox-session-locked', handleStorageEvents);
+    window.addEventListener('bbox-session-unlocked', handleStorageEvents);
+    window.addEventListener('bbox-session-deleted', handleStorageEvents);
+    window.addEventListener('bbox-session-accessed', handleStorageEvents);
+    window.addEventListener('bbox-encrypted-wallet-updated', handleStorageEvents);
+    window.addEventListener('storage', handleNativeStorage);
 
     return () => {
-      window.removeEventListener('cholo-encrypted-session-created', handleStorageEvents);
-      window.removeEventListener('cholo-session-locked', handleStorageEvents);
-      window.removeEventListener('cholo-session-unlocked', handleStorageEvents);
-      window.removeEventListener('cholo-session-deleted', handleStorageEvents);
-      window.removeEventListener('cholo-session-accessed', handleStorageEvents);
+      window.removeEventListener('bbox-encrypted-session-created', handleStorageEvents);
+      window.removeEventListener('bbox-session-locked', handleStorageEvents);
+      window.removeEventListener('bbox-session-unlocked', handleStorageEvents);
+      window.removeEventListener('bbox-session-deleted', handleStorageEvents);
+      window.removeEventListener('bbox-session-accessed', handleStorageEvents);
+      window.removeEventListener('bbox-encrypted-wallet-updated', handleStorageEvents);
+      window.removeEventListener('storage', handleNativeStorage);
     };
   }, []);
 
   const extendSessionHandler = useCallback(() => {
     if (isAuthenticated && currentWallet) {
       // Update last accessed time by extending session
-      const result = libExtendSession();
-      console.log('Session extension result:', result);
+      libExtendSession();
     }
   }, [isAuthenticated, currentWallet]);
 
@@ -189,7 +225,6 @@ export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
     const interval = setInterval(() => {
       const expired = autoLockIfExpired();
       if (expired) {
-        console.log('Session expired, locking wallet');
         setIsSessionLocked(true);
         setIsAuthenticated(false);
         setCurrentWallet(null);
@@ -244,12 +279,17 @@ export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
     
     try {
       await storeEncryptedWallet(walletData, passphrase);
+      unlockSession();
       setCurrentWallet(walletData);
       setIsAuthenticated(true);
       setIsWalletEncrypted(true);
       setWalletInfo({ 
         address: walletData.address, 
         label: walletData.label, 
+        bitcoinAddress: walletData.bitcoinAddress,
+        rootstockAddress: walletData.rootstockAddress,
+        liquidAddress: walletData.liquidAddress,
+        nostrPublicKey: walletData.nostrPublicKey,
         createdAt: Date.now() 
       });
 
@@ -257,6 +297,10 @@ export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
       if (typeof window !== 'undefined') {
         const sessionData = {
           address: walletData.address,
+          bitcoinAddress: walletData.bitcoinAddress,
+          rootstockAddress: walletData.rootstockAddress,
+          liquidAddress: walletData.liquidAddress,
+          nostrPublicKey: walletData.nostrPublicKey,
           label: walletData.label,
           encrypted: true,
           createdAt: Date.now()
@@ -271,15 +315,12 @@ export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
     }
   }, []);
 
-  const unlockWallet = useCallback(async (passphrase: string) => {
+  const unlockWallet = useCallback(async (passphrase: string): Promise<WalletData> => {
     setIsLoading(true);
     setAuthError(null);
 
     try {
-      // Clean up previous session/config before unlocking (robust session logic)
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('cholo_encrypted_session');
-        localStorage.removeItem('cholo_session_config');
         localStorage.removeItem('cholo_session_locked');
       }
 
@@ -297,12 +338,18 @@ export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
       if (typeof window !== 'undefined') {
         const sessionData = {
           address: walletData.address,
+          bitcoinAddress: walletData.bitcoinAddress,
+          rootstockAddress: walletData.rootstockAddress,
+          liquidAddress: walletData.liquidAddress,
+          nostrPublicKey: walletData.nostrPublicKey,
           label: walletData.label,
           encrypted: true,
           createdAt: Date.now()
         };
         localStorage.setItem('cholo_session', JSON.stringify(sessionData));
       }
+
+      return walletData;
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Failed to unlock wallet');
       throw error;
@@ -377,7 +424,10 @@ export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
   }, []);
 
   // Provide effective current wallet (encrypted or devnet)
-  const effectiveCurrentWallet = currentWallet || (devnetWallet ? {
+  const effectiveCurrentWallet = currentWallet ? {
+    ...currentWallet,
+    nostrPublicKey: currentWallet.nostrPublicKey ?? (currentWallet.privateKey ? getNostrPublicKeyFromPrivateKey(currentWallet.privateKey) : undefined),
+  } : (devnetWallet ? {
     mnemonic: devnetWallet.mnemonic,
     privateKey: '',
     address: devnetWallet.stxAddress,

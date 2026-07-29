@@ -98,18 +98,18 @@ export async function POST(request: NextRequest) {
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
       to: [toEmail],
-      subject: `Kapu Wallet Recovery Link${testingMode && email !== toEmail ? ` (for ${email})` : ''}`,
+      subject: `Cholo Wallet Recovery Link${testingMode && email !== toEmail ? ` (for ${email})` : ''}`,
       html: `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Kapu Wallet Recovery</title>
+          <title>Cholo Wallet Recovery</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">🔐 Kapu Wallet</h1>
+            <h1 style="color: white; margin: 0; font-size: 28px;">🔐 Cholo Wallet</h1>
             <p style="color: white; margin: 10px 0 0 0; opacity: 0.9;">Secure Wallet Recovery</p>
           </div>
           
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
             </div>
             ` : ''}
             
-            <p>Your Kapu wallet has been securely encrypted and is ready for recovery. Click the button below to access your wallet:</p>
+            <p>Your Cholo wallet has been securely encrypted and is ready for recovery. Click the button below to access your wallet:</p>
             
             <div style="text-align: center; margin: 30px 0;">
               <a href="${recoveryLink}" 
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
               <ul style="color: #856404; margin: 0; padding-left: 20px;">
                 <li>You will need your password to decrypt your wallet</li>
                 <li>Never share this link or your password with anyone</li>
-                <li>Kapu cannot recover your password - keep it safe</li>
+                <li>Cholo cannot recover your password - keep it safe</li>
                 <li>Save this link securely for future wallet recovery</li>
               </ul>
             </div>
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
           </div>
           
           <div style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
-            <p>© 2025 Kapu Wallet - Open source software licensed under GNU License</p>
+            <p>© 2025 Cholo Wallet - Open source software licensed under GNU License</p>
             <p>This is an automated message, please do not reply to this email.</p>
           </div>
         </body>

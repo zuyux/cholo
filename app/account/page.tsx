@@ -20,7 +20,7 @@ export default function AccountCreatedPage() {
     if (typeof window !== "undefined") {
       setInitialLoading(true);
       setTimeout(() => {
-        const data = sessionStorage.getItem("kapu_new_wallet");
+        const data = sessionStorage.getItem("cholo_new_wallet");
         if (data) setWallet(JSON.parse(data));
         setInitialLoading(false);
       }, 600); 
@@ -51,8 +51,8 @@ export default function AccountCreatedPage() {
         };
       }
       
-      localStorage.setItem("kapu_session", JSON.stringify(sessionData));
-      window.dispatchEvent(new Event("kapu-session-update"));
+      localStorage.setItem("cholo_session", JSON.stringify(sessionData));
+      window.dispatchEvent(new Event("cholo-session-update"));
       router.push(`/${wallet.address}`);
     }
   };

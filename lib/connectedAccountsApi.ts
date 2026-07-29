@@ -1,3 +1,5 @@
+import { supabase } from '@/lib/supabaseClient';
+
 /**
  * Get passkey for a connected account by address
  */
@@ -10,7 +12,6 @@ export async function getConnectedAccountPasskeyByAddress(address: string): Prom
   if (error || !data) return null;
   return data.passkey || null;
 }
-import { supabase } from '@/lib/supabaseClient';
 
 /**
  * Upsert passkey for a connected account (address)
@@ -42,5 +43,22 @@ export async function getConnectedAccountByEmail(email: string) {
     .eq('email', email)
     .single();
   if (error) return null;
+  return data;
+}
+
+/**
+ * Fetch a connected account by address, if it already exists
+ */
+export async function getConnectedAccountByAddress(address: string) {
+  const { data, error } = await supabase
+    .from('connected_accounts')
+    .select('*')
+    .eq('address', address)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
   return data;
 }

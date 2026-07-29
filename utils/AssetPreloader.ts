@@ -114,17 +114,9 @@ export class AssetPreloader {
    */
   static getCriticalAssets(): string[] {
     return [
-      '/models/default.glb',
-      '/home.svg',
-      '/4V4-DIY.svg',
-      '/4V4-DIY.png',
-      '/loader.gif',
-      '/loaderb.gif',
-      '/delta-logo.svg',
-      '/delta-logo.png',
-      // Add fonts if they're critical
-      '/fonts/ChakraPetch-Regular.woff2',
-      '/fonts/ChakraPetch-Bold.woff2',
+      '/cholo/cholo-hero.png',
+      '/cholo/gallery-1.png',
+      '/cholo/gallery-11.png',
     ];
   }
 
@@ -134,8 +126,9 @@ export class AssetPreloader {
   static getPageAssets(page: string): string[] {
     const assetsMap: Record<string, string[]> = {
       home: [
-        '/01.png', '/02.png', '/03.png', '/04.png', 
-        '/05.png', '/06.png', '/07.png'
+        '/cholo/gallery-2.png',
+        '/cholo/gallery-3.png',
+        '/cholo/gallery-4.png',
       ],
       mint: [
         '/add-ico.svg',

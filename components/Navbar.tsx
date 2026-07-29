@@ -1,27 +1,15 @@
-'use client';
-
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import GetInModal from '@/components/GetInModal';
 
 export const Navbar = () => {
-  const [showModal, setShowModal] = useState(false);
-  
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 select-none h-20">
-      <div className="mx-auto p-0 full">
-        <div className="flex justify-between items-center h-full">
-          {/* Logo Section */}
-          <Link href="/" className="no-underline">
-            <Button className="title mx-2 my-6 font-extrabold text-xl md:text-3xl lg:text-6xl text-foreground backdrop-blur-sm bg-transparent hover:bg-black/20">
-              $CHOLO
-            </Button>
-          </Link>
-
-          {showModal && (
-            <GetInModal onClose={() => setShowModal(false)} />
-          )}
+    <nav className="cholo-nav">
+      <div className="cholo-nav-inner">
+        <Link href="/" className="cholo-nav-brand"><span>$CHOLO<br /></span></Link>
+        <div className="cholo-nav-links">
+          <Link href="/#files">Historia</Link>
+          <Link href="/#tokenomics">Tokenomics</Link>
+          <Link href="/#gallery">Archivo</Link>
+          <Link href="/wallet">Wallet</Link>
         </div>
       </div>
     </nav>
