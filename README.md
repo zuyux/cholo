@@ -1,15 +1,16 @@
 cholo.meme
 # Social reward service
 
-The 100 $CHOLO welcome flow expects a server-side social verification service. Configure:
+The 100 $CHOLO welcome flow runs inside this Next.js app and stores state in Supabase. Apply `supabase/migrations/20260729000000_create_reward_claims.sql`, then configure:
 
 ```env
-SOCIAL_REWARD_AUTH_URL=https://social.example.com/oauth
-SOCIAL_REWARD_API_URL=https://social.example.com/api
-SOCIAL_REWARD_API_SECRET=replace-with-a-server-secret
+X_CLIENT_ID=...
+X_CLIENT_SECRET=...
+X_REDIRECT_URI=https://your-domain.com/api/rewards/callback/x
+X_CHOLO_USERNAME=cholocoinmeme
 ```
 
-The service must expose `/x` below the auth URL, plus `POST /instagram`, `GET /status?address=...&verify=...`, `POST /follow/x`, and `POST /claim` below the API URL. `POST /instagram` stores the submitted Instagram username against the wallet address for later follow verification; Instagram OAuth is not used. The X OAuth grant must include `tweet.read users.read follows.read follows.write offline.access`. `POST /follow/x` receives `{ "address": "..." }`, uses the server-held OAuth user token, and always follows the configured CHOLO account rather than accepting a target ID from the browser. A status/claim response uses this shape:
+Register the callback URL in the X developer console. Instagram does not expose arbitrary follower verification through its public API, so the app records the submitted handle; X uses OAuth 2.0 PKCE and performs the follow through the official API. A status/claim response uses this shape:
 
 ```json
 {

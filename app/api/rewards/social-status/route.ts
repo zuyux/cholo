@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getReward, toStatus } from '@/lib/rewardService';
 export async function GET(request: NextRequest) {
   const address = request.nextUrl.searchParams.get('address');
   if (!address) return NextResponse.json({ error: 'Falta la dirección de la billetera' }, { status: 400 });
-  const apiUrl = process.env.SOCIAL_REWARD_API_URL; const secret = process.env.SOCIAL_REWARD_API_SECRET;
-  if (!apiUrl || !secret) return NextResponse.json({ error: 'La verificación social aún no está configurada' }, { status: 503 });
-  const upstream = await fetch(`${apiUrl}/status?address=${encodeURIComponent(address)}&verify=${request.nextUrl.searchParams.get('verify') === 'true'}`, { headers: { Authorization: `Bearer ${secret}` }, cache: 'no-store' });
-  return NextResponse.json(await upstream.json(), { status: upstream.status });
+  try { return NextResponse.json(toStatus(await getReward(address))); }
+  catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'No se pudo consultar la recompensa' }, { status: 500 }); }
 }

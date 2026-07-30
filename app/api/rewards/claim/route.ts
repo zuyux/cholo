@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getReward, saveReward, toStatus } from '@/lib/rewardService';
 export async function POST(request: NextRequest) {
   const { address } = await request.json().catch(() => ({ address: null }));
   if (!address || typeof address !== 'string') return NextResponse.json({ error: 'Falta la dirección de la billetera' }, { status: 400 });
-  const apiUrl = process.env.SOCIAL_REWARD_API_URL; const secret = process.env.SOCIAL_REWARD_API_SECRET;
-  if (!apiUrl || !secret) return NextResponse.json({ error: 'El servicio de recompensas aún no está configurado' }, { status: 503 });
-  const upstream = await fetch(`${apiUrl}/claim`, { method: 'POST', headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ address }), cache: 'no-store' });
-  return NextResponse.json(await upstream.json(), { status: upstream.status });
+  try {
+    const current = await getReward(address);
+    if (!current?.instagram_connected || !current?.x_following) return NextResponse.json({ error: 'Completa primero los requisitos sociales' }, { status: 409 });
+    if (current.claimed) return NextResponse.json(toStatus(current));
+    return NextResponse.json(toStatus(await saveReward(address, { claimed: true, claimed_at: new Date().toISOString() })));
+  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'No se pudo registrar la recompensa' }, { status: 500 }); }
 }
