@@ -27,7 +27,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
   mode,
   isLoading = false,
   error = null,
-  placeholder = 'Enter your password',
+  placeholder = 'Ingresa tu contraseña',
   showStrengthIndicator = false,
   autoFocus = true,
   onCancel
@@ -78,7 +78,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
     }
 
     if (mode === 'create' && !verifiedEmailToken) {
-      setEmailCodeError('Verify your email before creating your wallet.');
+      setEmailCodeError('Verifica tu correo antes de crear tu billetera.');
       return;
     }
     
@@ -124,13 +124,13 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
     setVerifiedEmailToken(null);
 
     if (!trimmedEmail) {
-      setEmailCodeError('Email is required to create a wallet.');
+      setEmailCodeError('El correo es obligatorio para crear una billetera.');
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmedEmail)) {
-      setEmailCodeError('Enter a valid email address.');
+      setEmailCodeError('Ingresa un correo electrónico válido.');
       return;
     }
 
@@ -144,13 +144,13 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to send verification code');
+        throw new Error(result.error || 'No se pudo enviar el código de verificación');
       }
 
       setEmailCodeSent(true);
-      setEmailCodeMessage('Verification code sent. Check your email.');
+      setEmailCodeMessage('Código de verificación enviado. Revisa tu correo.');
     } catch (requestError) {
-      setEmailCodeError(requestError instanceof Error ? requestError.message : 'Failed to send verification code');
+      setEmailCodeError(requestError instanceof Error ? requestError.message : 'No se pudo enviar el código de verificación');
     } finally {
       setEmailCodeLoading(false);
     }
@@ -163,7 +163,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
     setEmailCodeError(null);
 
     if (!/^\d{6}$/.test(trimmedCode)) {
-      setEmailCodeError('Enter the 6-digit verification code.');
+      setEmailCodeError('Ingresa el código de verificación de 6 dígitos.');
       return;
     }
 
@@ -177,14 +177,14 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
       const result = await response.json();
 
       if (!response.ok || !result.verifiedEmailToken) {
-        throw new Error(result.error || 'Failed to verify code');
+        throw new Error(result.error || 'No se pudo verificar el código');
       }
 
       setVerifiedEmailToken(result.verifiedEmailToken);
-      setEmailCodeMessage('Email verified. You can create your wallet now.');
+      setEmailCodeMessage('Correo verificado. Ya puedes crear tu billetera.');
     } catch (verifyError) {
       setVerifiedEmailToken(null);
-      setEmailCodeError(verifyError instanceof Error ? verifyError.message : 'Failed to verify code');
+      setEmailCodeError(verifyError instanceof Error ? verifyError.message : 'No se pudo verificar el código');
     } finally {
       setEmailCodeLoading(false);
     }
@@ -198,10 +198,10 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
   };
 
   const getStrengthText = (score: number): string => {
-    if (score <= 2) return 'Weak';
-    if (score <= 4) return 'Fair';
-    if (score <= 6) return 'Good';
-    return 'Strong';
+    if (score <= 2) return 'Débil';
+    if (score <= 4) return 'Regular';
+    if (score <= 6) return 'Buena';
+    return 'Fuerte';
   };
 
   const emailValid = mode !== 'create' || (email.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
@@ -221,7 +221,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
               type="email"
               value={email}
               onChange={(e) => handleEmailChange(e.target.value)}
-              placeholder="Enter your email address"
+              placeholder="Ingresa tu correo electrónico"
               className="bg-background text-foreground focus:border-ring border-[1px] border-foreground/10 py-6"
               disabled={isBusy || Boolean(verifiedEmailToken)}
               autoComplete="off"
@@ -233,9 +233,9 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
                 type="button"
                 onClick={handleRequestEmailCode}
                 disabled={!emailValid || isBusy || Boolean(verifiedEmailToken)}
-                className="flex-1 text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {emailCodeSent ? 'Resend Code' : 'Send Code'}
+                {emailCodeSent ? 'Reenviar código' : 'Enviar código'}
               </Button>
               {emailCodeSent && (
                 <Button
@@ -276,7 +276,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
                   type="button"
                   onClick={handleVerifyEmailCode}
                   disabled={emailCode.length !== 6 || isBusy || Boolean(verifiedEmailToken)}
-                  className="text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Verify
                 </Button>
@@ -323,7 +323,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
         {showStrengthIndicator && strengthInfo && touched && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">Password Strength:</span>
+              <span className="text-gray-400">Seguridad de la contraseña:</span>
               <span className={`font-medium ${strengthInfo.isValid ? 'text-green-400' : 'text-red-400'}`}>
                 {getStrengthText(strengthInfo.score)}
               </span>
@@ -347,7 +347,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
             {strengthInfo.isValid && (
               <p className="text-green-400 text-xs flex items-center gap-1">
                 <CheckCircle2 className="h-3 w-3" />
-                The password meets the security requirements
+                La contraseña cumple los requisitos de seguridad
               </p>
             )}
           </div>
@@ -368,30 +368,30 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
           <Button
             type="submit"
             disabled={!isFormValid || isBusy}
-            className="flex-1 text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="flex-1 text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {isBusy ? (
               <div className="flex items-center gap-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                {emailCodeLoading ? 'Checking...' :
-                 mode === 'unlock' ? 'Unlocking...' :
-                 mode === 'create' ? 'Creating...' : 'Updating...'}
+                {emailCodeLoading ? 'Verificando...' :
+                 mode === 'unlock' ? 'Desbloqueando...' :
+                 mode === 'create' ? 'Creando...' : 'Actualizando...'}
               </div>
             ) : (
               <>
-                {mode === 'unlock' ? 'Unlock Wallet' : 
-                 mode === 'create' ? 'Create Wallet' : 'Change Password'}
+                {mode === 'unlock' ? 'Desbloquear billetera' :
+                 mode === 'create' ? 'Crear billetera' : 'Cambiar contraseña'}
               </>
             )}
           </Button>
-          {onCancel && (
+          {onCancel && mode !== 'create' && (
             <Button
               type="button"
               onClick={onCancel}
               disabled={isBusy}
               className="bg-transparent text-muted-foreground border border-border hover:bg-secondary"
             >
-              Cancel
+              Cancelar
             </Button>
           )}
           

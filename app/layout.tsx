@@ -7,6 +7,9 @@ import { WalletProvider } from '@/components/WalletProvider';
 import { Toaster } from "@/components/ui/sonner"
 import AppLoadingProvider from "@/components/AppLoadingProvider";
 import GlobalErrorHandler from "@/components/GlobalErrorHandler";
+import { I18nProvider } from "@/components/I18nProvider";
+import { messages } from "@/lib/messages";
+import RewardClaimModal from "@/components/RewardClaimModal";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -57,13 +60,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="es" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                if (localStorage.theme === 'dark' || ((!('theme' in localStorage) || localStorage.theme === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                if (!('theme' in localStorage) || localStorage.theme === 'dark' || (localStorage.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                   document.documentElement.classList.add('dark')
                 } else {
                   document.documentElement.classList.remove('dark')
@@ -75,18 +78,21 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} ${chakraPetch.variable} antialiased`}>
         <GlobalErrorHandler />
-        <WalletProvider>
-          <Providers>
-            <AppLoadingProvider>
-              <Navbar />
-              <GetInButton />
-              <main >
-                {children}
-              </main>
-            </AppLoadingProvider>
-          </Providers>
-        </WalletProvider>
-        <Toaster />
+        <I18nProvider locale="es" messages={messages.es}>
+          <WalletProvider>
+            <Providers>
+              <AppLoadingProvider>
+                <Navbar />
+                <GetInButton />
+                <main>
+                  {children}
+                </main>
+              </AppLoadingProvider>
+              <RewardClaimModal />
+            </Providers>
+          </WalletProvider>
+          <Toaster />
+        </I18nProvider>
       </body>
     </html>
   );

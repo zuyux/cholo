@@ -9,7 +9,7 @@ export const Navbar = () => {
           <Link href="/#files">Historia</Link>
           <Link href="/#tokenomics">Tokenomics</Link>
           <Link href="/#gallery">Archivo</Link>
-          <Link href="/wallet">Wallet</Link>
+          <Link href="/wallet">Billetera</Link>
         </div>
       </div>
     </nav>

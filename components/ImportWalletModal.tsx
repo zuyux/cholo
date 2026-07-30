@@ -96,13 +96,13 @@ export default function ImportWalletModal({ onBack, onImported }: ImportWalletMo
         });
         const result = await response.json();
         if (response.ok && result.exists) {
-          setWallet({ ...derived, label: result.walletLabel || 'BBOX Wallet' });
+          setWallet({ ...derived, label: result.walletLabel || 'CHOLO Wallet' });
           setStep('password');
           return;
         }
       }
 
-      throw new Error(translate('No BBOX account was found for this recovery phrase.'));
+      throw new Error(translate('No CHOLO account was found for this recovery phrase.'));
     } catch (cause) {
       setError(cause instanceof Error && cause.message !== 'Invalid mnemonic'
         ? cause.message
@@ -207,7 +207,7 @@ export default function ImportWalletModal({ onBack, onImported }: ImportWalletMo
               </label>
             ))}
           </div>
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">{translate('Never share this phrase. BBOX support will never ask for it.')}</div>
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">{translate('Never share this phrase. CHOLO support will never ask for it.')}</div>
           <Button className="w-full" disabled={busy || words.some((word) => !word)} onClick={checkPhrase}>{translate(busy ? 'Checking account…' : 'Continue')}</Button>
         </>
       ) : (

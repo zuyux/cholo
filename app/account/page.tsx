@@ -70,7 +70,7 @@ export default function AccountCreatedPage() {
   if (!wallet) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="text-lg text-gray-400">No wallet found. Please create an account first.</div>
+        <div className="text-lg text-gray-400">No se encontró ninguna billetera. Primero crea una cuenta.</div>
       </div>
     );
   }
@@ -78,16 +78,16 @@ export default function AccountCreatedPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
       <div className="bg-[#111] rounded-2xl p-8 max-w-lg w-full border-[1px] border-[#222] shadow-lg">
-        <h2 className="text-2xl font-bold text-center mb-4 text-white">Your Account Has Been Created</h2>
+        <h2 className="text-2xl font-bold text-center mb-4 text-white">Tu cuenta ha sido creada</h2>
         <div className="mb-4 text-sm bg-white text-black text-center p-4 rounded-lg">
-          <p>Below, you will see 24 words that make up your recovery phrase.</p>
+          <p>A continuación verás las 24 palabras que componen tu frase de recuperación.</p>
           <br/>
-          <p>Please write it down. Keep it safe and never share it with anyone. Your recovery phrase is the only way you can access your funds.</p>
+          <p>Anótala, guárdala en un lugar seguro y nunca la compartas. Tu frase de recuperación es la única forma de acceder a tus fondos.</p>
           <br/>
-          <p>We do not keep nor be able to restore your recovery phrase. Only you have access to your account.</p>
+          <p>No guardamos tu frase de recuperación ni podemos restaurarla. Solo tú tienes acceso a tu cuenta.</p>
         </div>
         <div className="mb-6">
-          <div className="font-semibold text-white mb-1 text-center">Seed Phrase:</div>
+          <div className="font-semibold text-white mb-1 text-center">Frase semilla:</div>
           <div className="bg-[#181818] text-white font-mono p-6 rounded break-words text-xl leading-7">{wallet.mnemonic}</div>
         </div>
         
@@ -104,12 +104,12 @@ export default function AccountCreatedPage() {
             {emailBackupCreated ? (
               <>
                 <CheckCircle size={20} />
-                Email Sent
+                Correo enviado
               </>
             ) : (
               <>
                 <Mail size={20} />
-                Create Email Backup
+                Crear respaldo por correo
               </>
             )}
           </Button>
@@ -124,7 +124,7 @@ export default function AccountCreatedPage() {
                 <LoaderCircle className="animate-spin text-primary" size={38} strokeWidth={2.5} />
               </span>
             ) : (
-              <>I&apos;ve saved my credentials, continue</>
+              <>He guardado mis credenciales, continuar</>
             )}
           </Button>
         </div>

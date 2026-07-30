@@ -122,7 +122,7 @@ export default function RecoverWalletPage() {
         <div className="flex items-center justify-center w-full mb-4">
           <LoaderCircle className="animate-spin text-primary" size={38} strokeWidth={2.5} />
         </div>
-        <p className="text-gray-400">Validating recovery link...</p>
+        <p className="text-gray-400">Validando enlace de recuperación...</p>
       </div>
     );
   }
@@ -134,13 +134,13 @@ export default function RecoverWalletPage() {
           <div className="flex justify-center mb-4">
             <AlertCircle className="w-16 h-16 text-red-500" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-4">Invalid Recovery Link</h2>
+          <h2 className="text-2xl font-bold text-white mb-4">Enlace de recuperación no válido</h2>
           <p className="text-gray-400 mb-6">{error}</p>
           <Button
             onClick={() => router.push('/')}
             className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
           >
-            Return to Home
+            Volver al inicio
           </Button>
         </Card>
       </div>
@@ -154,14 +154,14 @@ export default function RecoverWalletPage() {
           <div className="flex justify-center mb-4">
             <Shield className="w-16 h-16 text-[#2563eb]" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Recover Your Wallet</h2>
-          <p className="text-gray-400">Enter your password to decrypt and access your wallet</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Recupera tu billetera</h2>
+          <p className="text-gray-400">Ingresa tu contraseña para descifrar y acceder a tu billetera</p>
         </div>
 
         <form onSubmit={handleRecover} className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="password" className="text-white">
-              Password
+              Contraseña
             </Label>
             <div className="relative">
               <Input
@@ -169,7 +169,7 @@ export default function RecoverWalletPage() {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password (min 12 characters)"
+                placeholder="Ingresa tu contraseña (mínimo 12 caracteres)"
                 className="bg-[#181818] border-[#333] text-white pr-12"
                 disabled={loading}
               />
@@ -194,11 +194,11 @@ export default function RecoverWalletPage() {
             <div className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
               <div className="text-sm text-yellow-400">
-                <p className="font-semibold mb-1">Security Notice:</p>
+                <p className="font-semibold mb-1">Aviso de seguridad:</p>
                 <ul className="space-y-1 text-xs">
-                  <li>• Your password cannot be recovered if forgotten</li>
-                  <li>• Keep your password secure and private</li>
-                  <li>• This link can be used multiple times until you recover</li>
+                  <li>• Tu contraseña no se puede recuperar si la olvidas</li>
+                  <li>• Mantén tu contraseña segura y privada</li>
+                  <li>• Puedes usar este enlace varias veces hasta completar la recuperación</li>
                 </ul>
               </div>
             </div>
@@ -212,10 +212,10 @@ export default function RecoverWalletPage() {
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <LoaderCircle className="animate-spin text-primary" size={18} strokeWidth={2.5} />
-                Decrypting Wallet...
+                Descifrando billetera...
               </span>
             ) : (
-              'Recover Wallet'
+              'Recuperar billetera'
             )}
           </Button>
         </form>

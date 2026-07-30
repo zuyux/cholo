@@ -5,8 +5,8 @@ export type WalletType = 'leather' | 'xverse' | 'alby' | 'nostria' | 'okx' | 'wa
 
 const WALLET_ADDRESS_STORAGE_KEY = 'walletAddress';
 const WALLET_TYPE_STORAGE_KEY = 'walletType';
-const WELCOME_MODAL_PENDING_STORAGE_KEY = 'bbox-welcome-modal-pending';
-export const WELCOME_MODAL_AFTER_SIGN_IN_EVENT = 'bbox-welcome-modal-after-sign-in';
+const WELCOME_MODAL_PENDING_STORAGE_KEY = 'cholo-welcome-modal-pending';
+export const WELCOME_MODAL_AFTER_SIGN_IN_EVENT = 'cholo-welcome-modal-after-sign-in';
 
 interface WalletContextType {
   address: string | null;
@@ -49,7 +49,7 @@ export const persistCachedWalletState = (address: string | null, walletType: Wal
     localStorage.removeItem(WALLET_TYPE_STORAGE_KEY);
   }
 
-  window.dispatchEvent(new Event('bbox-wallet-update'));
+  window.dispatchEvent(new Event('cholo-wallet-update'));
 };
 
 export const queueWelcomeModalAfterSignIn = (address: string) => {
@@ -98,10 +98,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    window.addEventListener('bbox-wallet-update', restoreWalletState);
+    window.addEventListener('cholo-wallet-update', restoreWalletState);
     window.addEventListener('storage', handleStorage);
     return () => {
-      window.removeEventListener('bbox-wallet-update', restoreWalletState);
+      window.removeEventListener('cholo-wallet-update', restoreWalletState);
       window.removeEventListener('storage', handleStorage);
     };
   }, []); // Intentionally empty - only run on mount to restore saved address

@@ -25,14 +25,14 @@ export function SeedPhraseInput({
           onClick={() => setShowSeedInput(true)}
         >
           <Image src="/seed-ico.svg" alt="Seed Phrase" width={18} height={18}/>
-          <span className="text-center flex-1">Use Seed Phrase</span>
+          <span className="text-center flex-1">Usar frase semilla</span>
         </button>
       ) : (
         <div className="flex flex-col gap-2 w-full mb-3 rounded-[9px] bg-[#232323] text-white font-mono text-md border border-[#333] p-0 resize-none focus:outline-none focus:ring-2 focus:ring-[#444]">
           <textarea
             className="focus:outline-none p-4 h-30"
             rows={3}
-            placeholder="Enter your seed phrase"
+            placeholder="Ingresa tu frase semilla"
             value={seedValue}
             onChange={e => setSeedValue(e.target.value)}
             onKeyDown={e => {

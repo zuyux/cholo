@@ -67,7 +67,7 @@ export default function RemoveEmailPage() {
         <p className="text-muted-foreground">{message}</p>
         <div className="flex flex-col gap-3">
           <Button asChild className="cursor-pointer">
-            <Link href="/"><LocalizedText>Return to BBOX</LocalizedText></Link>
+            <Link href="/"><LocalizedText>Return to CHOLO</LocalizedText></Link>
           </Button>
           {status === 'error' && (
             <Button variant="outline" asChild className="cursor-pointer">

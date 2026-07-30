@@ -115,8 +115,8 @@ export class AssetPreloader {
   static getCriticalAssets(): string[] {
     return [
       '/cholo/cholo-hero.png',
-      '/cholo/gallery-1.png',
       '/cholo/gallery-11.png',
+      '/nft/01.png',
     ];
   }
 
@@ -126,9 +126,9 @@ export class AssetPreloader {
   static getPageAssets(page: string): string[] {
     const assetsMap: Record<string, string[]> = {
       home: [
-        '/cholo/gallery-2.png',
-        '/cholo/gallery-3.png',
-        '/cholo/gallery-4.png',
+        '/nft/02.png',
+        '/nft/03.png',
+        '/nft/04.png',
       ],
       mint: [
         '/add-ico.svg',

@@ -47,10 +47,10 @@ const getWalletConnectProvider = async (): Promise<EthereumProvider> => {
         optionalChains: [30, 56, 137, 42161, 8453],
         showQrModal: true,
         metadata: {
-          name: 'BBOX',
-          description: 'BBOX app authentication',
+          name: 'CHOLO',
+          description: 'CHOLO app authentication',
           url: window.location.origin,
-          icons: [`${window.location.origin}/bbox.png`],
+          icons: [`${window.location.origin}/cholo.png`],
         },
       }) as Promise<EthereumProvider>;
     });

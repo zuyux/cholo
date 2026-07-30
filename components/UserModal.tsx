@@ -167,12 +167,12 @@ export default function UserModal({ onClose }: UserModalProps) {
       'cholo_session_locked',
       'cholo_encrypted_session',
       'cholo_encrypted_wallet',
-      // Clear legacy upstream keys too, so copied BBOX sessions cannot linger.
-      'bbox_session',
-      'bbox_session_config',
-      'bbox_session_locked',
-      'bbox_encrypted_session',
-      'bbox_encrypted_wallet',
+      // Clear legacy upstream keys too, so copied CHOLO sessions cannot linger.
+      'cholo_session',
+      'cholo_session_config',
+      'cholo_session_locked',
+      'cholo_encrypted_session',
+      'cholo_encrypted_wallet',
       'blockstack-session',
       'connect-session',
       'walletAddress',

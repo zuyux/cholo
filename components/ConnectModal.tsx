@@ -10,8 +10,6 @@ import { Label } from '@/components/ui/label';
 import { X, Wallet, Mail } from 'lucide-react';
 import { detectWalletExtensions } from '@/lib/detectWalletExtensions';
 import { getWalletErrorMessage, isWalletRequestCancelled } from '@/lib/walletErrors';
-import { connectAlbyWallet } from '@/lib/albyWallet';
-import { connectNostriaSigner } from '@/lib/nostriaSigner';
 import { connectOkxWallet } from '@/lib/okxWallet';
 import { connectWalletConnect } from '@/lib/walletConnectWallet';
 import {
@@ -53,6 +51,7 @@ interface ConnectModalProps {
   onSuccess?: () => void;
   onError?: (err: string) => void;
   initialConnectMode?: ConnectMode;
+  embedded?: boolean;
 }
 
 type ConnectMode = 'wallets' | 'email' | 'import';
@@ -110,11 +109,15 @@ const isEmailAccountPayload = (payload: unknown): payload is EmailAccountPayload
 };
 
 // Destructure props at the top of your component
-export default function ConnectModal({ onClose, onSuccess, onError, initialConnectMode }: ConnectModalProps) {
+export default function ConnectModal({ onClose, onSuccess, onError, initialConnectMode, embedded = false }: ConnectModalProps) {
   const [connectMode, setConnectMode] = useState<ConnectMode>(initialConnectMode ?? 'wallets');
   const [wallets, setWallets] = useState<Array<{id: string, name: string, url: string, installed: boolean}>>([]);
   React.useEffect(() => {
-    setWallets([...detectWalletExtensions()].sort((a, b) => a.name.localeCompare(b.name)));
+    setWallets(
+      [...detectWalletExtensions()]
+        .filter((wallet) => wallet.id !== 'alby' && wallet.id !== 'nostria')
+        .sort((a, b) => a.name.localeCompare(b.name))
+    );
   }, []);
   const [email, setEmail] = useState('');
   const [emailStatus, setEmailStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -200,23 +203,23 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
     const identifier = email.trim();
     if (!identifier) {
       setEmailStatus('error');
-      setEmailMessage('Please enter your username or email address');
-      onError?.('Please enter your username or email address');
+      setEmailMessage('Ingresa tu usuario o correo electrónico');
+      onError?.('Ingresa tu usuario o correo electrónico');
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (identifier.includes('@') && !emailRegex.test(identifier)) {
       setEmailStatus('error');
-      setEmailMessage('Please enter a valid email address');
-      onError?.('Please enter a valid email address');
+      setEmailMessage('Ingresa un correo electrónico válido');
+      onError?.('Ingresa un correo electrónico válido');
       return;
     }
 
     if (!password) {
       setEmailStatus('error');
-      setEmailMessage('Please enter your password');
-      onError?.('Please enter your password');
+      setEmailMessage('Ingresa tu contraseña');
+      onError?.('Ingresa tu contraseña');
       return;
     }
 
@@ -239,7 +242,7 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
         const message =
           payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string'
             ? payload.error
-            : 'Failed to authenticate account';
+            : 'No se pudo autenticar la cuenta';
         throw new Error(message);
       }
 
@@ -250,7 +253,7 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
           mnemonic: payload.wallet.mnemonic,
           privateKey: payload.wallet.privateKey,
           address: payload.wallet.address,
-          label: payload.wallet.label || 'BBOX Wallet',
+          label: payload.wallet.label || 'CHOLO Wallet',
           bitcoinAddress: payload.wallet.bitcoinAddress,
           rootstockAddress: payload.wallet.rootstockAddress,
           liquidAddress: payload.wallet.liquidAddress,
@@ -261,7 +264,7 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
           encryptedMnemonic: account.encryptedMnemonic,
           encryptedPrivateKey: account.encryptedPrivateKey,
           address: account.address,
-          label: account.walletLabel || 'BBOX Wallet',
+          label: account.walletLabel || 'CHOLO Wallet',
           salt: account.encryptionSalt,
           iv: account.encryptionIv,
           version: account.encryptionVersion,
@@ -270,15 +273,15 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
         try {
           unlockedWallet = decryptPortableEncryptedWallet(walletPayload, password);
         } catch {
-          throw new Error('Invalid username, email, or password');
+          throw new Error('El usuario, correo o contraseña no son válidos');
         }
 
         const passkeyHash = CryptoJS.SHA256(unlockedWallet.privateKey + password).toString();
         if (passkeyHash !== account.passkey) {
-          throw new Error('Invalid username, email, or password');
+          throw new Error('El usuario, correo o contraseña no son válidos');
         }
       } else {
-        throw new Error('Failed to authenticate account');
+        throw new Error('No se pudo autenticar la cuenta');
       }
 
       await createEncryptedWallet(unlockedWallet, password);
@@ -288,12 +291,12 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
 
       setPassword('');
       setEmailStatus('success');
-      setEmailMessage('Wallet unlocked. Redirecting...');
+      setEmailMessage('Billetera desbloqueada. Redirigiendo...');
       onSuccess?.();
       onClose();
       router.push('/wallet');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to authenticate account';
+      const msg = err instanceof Error ? err.message : 'No se pudo autenticar la cuenta';
       setEmailStatus('error');
       setEmailMessage(msg);
       onError?.(msg);
@@ -306,29 +309,35 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
     return null;
   }
 
-  return createPortal(
-    <div className="fixed inset-0 bg-background/20 backdrop-blur-md flex items-center justify-center z-[201] select-none">
-      <div className="bg-background text-foreground rounded-2xl w-[calc(100%_-_2rem)] max-w-[400px] max-h-[90vh] overflow-y-auto shadow-2xl border border-border">
+  const modalContent = (
+    <div className={embedded
+      ? "cholo-connect-modal cholo-connect-embedded w-full select-none"
+      : "cholo-connect-modal fixed inset-0 flex items-center justify-center z-[201] select-none"
+    }>
+      <div className={embedded
+        ? "cholo-connect-panel w-full !border-0 !shadow-none"
+        : "cholo-connect-panel rounded-2xl w-[calc(100%_-_2rem)] max-w-[400px] max-h-[90vh] overflow-y-auto shadow-2xl"
+      }>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        {!embedded && <div className="flex items-center justify-between px-5">
           <h2 className="text-foreground text-xl font-semibold flex items-center">
             <Wallet className="w-5 h-5 mr-2" />
-            <LocalizedText>{connectMode === 'import' ? 'Recover Wallet' : connectMode === 'email' ? 'Sign in with username or email' : 'Connect Wallet'}
-          </LocalizedText></h2>
+            {connectMode === 'import' ? 'Recuperar billetera' : connectMode === 'email' ? 'Iniciar sesión con usuario o correo' : 'Conectar billetera'}
+          </h2>
           <button 
             onClick={onClose}
-            className="text-foreground/50 hover:text-gray-900 transition-colors cursor-pointer"
-            aria-label={"Close"}
+            className="text-[#a38870] hover:text-[#faeed5] transition-colors cursor-pointer"
+            aria-label="Cerrar"
           >
             <X className="w-6 h-6" />
           </button>
-        </div>
+        </div>}
 
-        <div className="px-5 py-4 space-y-4">
+        <div className={`${connectMode === 'wallets' ? 'py-0' : 'px-5'}`}>
           {connectMode === "wallets" && (
             <>
               {(wallets.length === 0 || wallets.every(w => !w.installed && w.id !== 'walletconnect')) && (
-                <div className="mb-2 text-gray-700 text-sm">
+                <div className="mb-2 text-[#c8b39a] text-sm">
                   <LocalizedText>You don&apos;t have unknown wallets in your browser that support this app. You need to install a wallet to proceed.
                 </LocalizedText></div>
               )}
@@ -336,24 +345,25 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
                 {wallets.map(w => {
                   const canAttemptConnect = w.installed || w.id === 'walletconnect';
                   return (
-                    <div key={w.id} className="flex items-center justify-between rounded-lg px-4 py-3">
+                    <div key={w.id} className="relative flex w-full items-center rounded-[3px] border border-[#c18b4e]/20 bg-[#1b1412] px-4 py-3 transition-colors hover:bg-[#2a1d19]">
                       <div className="flex items-center gap-3">
                         <Image
                           src={w.id === "leather" ? '/leather.svg' : w.id === "xverse" ? '/xverse.svg' : w.id === "alby" ? '/alby.svg' : w.id === "nostria" ? '/nostria.svg' : w.id === "okx" ? '/okx.webp' : w.id === "walletconnect" ? '/wallet-connect.png' : ''}
                           alt={w.name}
                           width={28}
                           height={28}
-                          className="w-7 h-7 rounded"
+                          className={`w-7 h-7 rounded ${w.id === 'xverse' ? 'p-1' : ''}`}
                           unoptimized
                         />
                         <div>
-                          <div className="font-semibold text-gray-900">{w.name}</div>
-                          <div className="text-xs text-gray-500">{w.url.replace('https://', '')}</div>
+                          <div className="font-semibold text-[#faeed5]">{w.name}</div>
+                          <div className="text-xs text-[#a38870]">{w.url.replace('https://', '')}</div>
                         </div>
                       </div>
                       {canAttemptConnect ? (
                       <Button
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-lg text-sm font-semibold cursor-pointer"
+                        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                        aria-label={`Conectar ${w.name}`}
                         onClick={async () => {
                             setWalletError(null);
                           try {
@@ -375,7 +385,7 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
                                 onClose();
                                 router.push('/wallet');
                               } else {
-                                const errorMsg = "Leather provider does not support request. Unlock the wallet and refresh the page.";
+                                const errorMsg = "Leather no admite esta solicitud. Desbloquea la billetera y actualiza la página.";
                                 setWalletError(errorMsg);
                                 onError?.(errorMsg);
                                 console.warn('Leather provider does not support request.');
@@ -391,63 +401,15 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
                                 onClose();
                                 router.push('/wallet');
                               } catch (err: unknown) {
-                                const errorMsg = getWalletErrorMessage(err, 'Failed to connect to Xverse.');
+                                const errorMsg = getWalletErrorMessage(err, 'No se pudo conectar con Xverse.');
                                 if (isWalletRequestCancelled(err)) {
-                                  setWalletError('Wallet connection was cancelled. Please try again.');
-                                  onError?.('Wallet connection was cancelled. Please try again.');
+                                  setWalletError('Se canceló la conexión. Inténtalo de nuevo.');
+                                  onError?.('Se canceló la conexión. Inténtalo de nuevo.');
                                 } else {
                                   setWalletError(errorMsg);
                                   onError?.(errorMsg);
                                 }
                                 console.error('Xverse connect error:', err);
-                              }
-                            } else if (w.id === "alby") {
-                              try {
-                                const albyConnection = await connectAlbyWallet();
-                                setAddress(albyConnection.address);
-                                setWalletType('alby');
-                                await persistSessionForWallet(albyConnection.address, 'alby');
-                                onSuccess?.();
-                                onClose();
-                                router.push('/wallet');
-                              } catch (err: unknown) {
-                                const errorMsg = getWalletErrorMessage(err, 'Failed to connect to Alby.');
-                                if (isWalletRequestCancelled(err)) {
-                                  setWalletError('Wallet connection was cancelled. Please try again.');
-                                  onError?.('Wallet connection was cancelled. Please try again.');
-                                } else {
-                                  setWalletError(errorMsg);
-                                  onError?.(errorMsg);
-                                }
-                                console.error('Alby connect error:', err);
-                              }
-                            } else if (w.id === "nostria") {
-                              try {
-                                const nostriaConnection = await connectNostriaSigner();
-                                setAddress(nostriaConnection.address);
-                                setWalletType('nostria');
-                                await persistSessionForWallet(nostriaConnection.address, 'nostria');
-                                if (typeof window !== "undefined" && nostriaConnection.authEvent) {
-                                  localStorage.setItem('cholo_nostria_auth', JSON.stringify({
-                                    address: nostriaConnection.address,
-                                    publicKeyHex: nostriaConnection.publicKeyHex,
-                                    authEvent: nostriaConnection.authEvent,
-                                    connectedAt: Date.now(),
-                                  }));
-                                }
-                                onSuccess?.();
-                                onClose();
-                                router.push('/wallet');
-                              } catch (err: unknown) {
-                                const errorMsg = getWalletErrorMessage(err, 'Failed to connect to Nostria Signer.');
-                                if (isWalletRequestCancelled(err)) {
-                                  setWalletError('Signer connection was cancelled. Please try again.');
-                                  onError?.('Signer connection was cancelled. Please try again.');
-                                } else {
-                                  setWalletError(errorMsg);
-                                  onError?.(errorMsg);
-                                }
-                                console.error('Nostria Signer connect error:', err);
                               }
                             } else if (w.id === "okx") {
                               try {
@@ -459,10 +421,10 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
                                 onClose();
                                 router.push('/wallet');
                               } catch (err: unknown) {
-                                const errorMsg = getWalletErrorMessage(err, 'Failed to connect to OKX Wallet.');
+                                const errorMsg = getWalletErrorMessage(err, 'No se pudo conectar con OKX Wallet.');
                                 if (isWalletRequestCancelled(err)) {
-                                  setWalletError('Wallet connection was cancelled. Please try again.');
-                                  onError?.('Wallet connection was cancelled. Please try again.');
+                                  setWalletError('Se canceló la conexión. Inténtalo de nuevo.');
+                                  onError?.('Se canceló la conexión. Inténtalo de nuevo.');
                                 } else {
                                   setWalletError(errorMsg);
                                   onError?.(errorMsg);
@@ -479,10 +441,10 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
                                 onClose();
                                 router.push('/wallet');
                               } catch (err: unknown) {
-                                const errorMsg = getWalletErrorMessage(err, 'Failed to connect with WalletConnect.');
+                                const errorMsg = getWalletErrorMessage(err, 'No se pudo conectar con WalletConnect.');
                                 if (isWalletRequestCancelled(err)) {
-                                  setWalletError('Wallet connection was cancelled. Please try again.');
-                                  onError?.('Wallet connection was cancelled. Please try again.');
+                                  setWalletError('Se canceló la conexión. Inténtalo de nuevo.');
+                                  onError?.('Se canceló la conexión. Inténtalo de nuevo.');
                                 } else {
                                   setWalletError(errorMsg);
                                   onError?.(errorMsg);
@@ -490,15 +452,15 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
                                 console.error('WalletConnect connect error:', err);
                               }
                             } else {
-                              const errorMsg = "Wallet provider not found. Please enable your wallet extension and refresh.";
+                              const errorMsg = "No se encontró el proveedor. Activa la extensión de tu billetera y actualiza la página.";
                               setWalletError(errorMsg);
                               onError?.(errorMsg);
                               console.warn('Wallet provider not found for:', w.id);
                             }
                           } catch (err: unknown) {
-                            const msg = getWalletErrorMessage(err, 'Failed to connect wallet.');
+                            const msg = getWalletErrorMessage(err, 'No se pudo conectar la billetera.');
                             if (isWalletRequestCancelled(err)) {
-                              const cancelMsg = "Wallet connection was cancelled. Please try again.";
+                              const cancelMsg = "Se canceló la conexión. Inténtalo de nuevo.";
                               setWalletError(cancelMsg);
                               onError?.(cancelMsg);
                             } else {
@@ -509,73 +471,74 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
                           }
                         }}
                       >
-                        <LocalizedText>Connect
-                      </LocalizedText></Button>
+                        Conectar
+                      </Button>
                     ) : (
                       <a
                         href={w.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-gray-700 px-4 py-1 rounded-lg text-sm font-semibold hover:bg-gray-100 cursor-pointer"
+                        className="absolute inset-0 z-10 cursor-pointer opacity-0"
+                        aria-label={`Instalar ${w.name}`}
                       >
-                        <LocalizedText>Install →
-                      </LocalizedText></a>
+                        Instalar →
+                      </a>
                     )}
                   </div>
                   );
                 })}
               </div>
               {walletError && (
-                <div className="mt-4 px-4 py-3 rounded-lg bg-red-50 text-sm text-red-700 border border-red-200">
+                <div className="mt-4 px-4 py-3 rounded-[3px] bg-[#b7132f]/15 text-sm text-[#ef8396]">
                   {walletError}
                 </div>
               )}
               <div className="flex items-center my-4">
-                <div className="flex-grow border-t border-gray-200"></div>
-                <span className="mx-2 text-xs text-gray-400"><LocalizedText>or</LocalizedText></span>
-                <div className="flex-grow border-t border-gray-200"></div>
+                <div className="flex-grow border-t border-[#c18b4e]/25"></div>
+                <span className="mx-2 text-xs text-[#a38870]">o</span>
+                <div className="flex-grow border-t border-[#c18b4e]/25"></div>
               </div>
               <Button
                 onClick={() => setConnectMode('email')}
-                className="w-full h-12 rounded-lg mb-2 bg-white text-gray-900 border border-gray-300 font-semibold text-base flex items-center px-4 hover:bg-gray-50 cursor-pointer"
+                className="w-full h-12 rounded-[3px] bg-[#1b1412] text-[#f1dfbd] border border-[#c18b4e]/55 font-semibold text-base flex items-center px-4 hover:bg-[#2a1d19] cursor-pointer"
                 type="button"
               >
                 <Mail className="w-5 h-5 mr-2" />
-                <LocalizedText>Sign In with Username or Email
-              </LocalizedText></Button>
+                Iniciar sesión
+              </Button>
             </>
           )}
           {connectMode === "email" && (
-            <div className="space-y-2 text-black">
+            <div className="space-y-2 text-[#f1dfbd]">
               <div className="space-y-0">
-                <Label htmlFor="email" className="hidden">Username or email</Label>
+                <Label htmlFor="email" className="hidden">Usuario o correo</Label>
                 <Input
                   id="email"
                   type="text"
                   autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Username or email"
-                  className="h-12 bg-background px-5 py-3 text-base text-foreground border-foreground/40 focus-visible:border-orange-500 focus-visible:ring-orange-500/30 focus-visible:ring-[3px]"
+                  placeholder="Usuario o correo"
+                  className="h-12 bg-[#1b1412] px-5 py-3 text-base text-[#faeed5] border-[#c18b4e]/45 focus-visible:border-[#c18b4e] focus-visible:ring-[#c18b4e]/25 focus-visible:ring-[3px]"
                 />
               </div>
               <div className="space-y-0">
-                <Label htmlFor="password" className="hidden"><LocalizedText>Password</LocalizedText></Label>
+                <Label htmlFor="password" className="hidden">Contraseña</Label>
                 <Input
                   id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  className="h-12 bg-background px-5 py-3 text-base text-foreground border-foreground/40 focus-visible:border-orange-500 focus-visible:ring-orange-500/30 focus-visible:ring-[3px]"
+                  placeholder="Contraseña"
+                  className="h-12 bg-[#1b1412] px-5 py-3 text-base text-[#faeed5] border-[#c18b4e]/45 focus-visible:border-[#c18b4e] focus-visible:ring-[#c18b4e]/25 focus-visible:ring-[3px]"
                 />
               </div>
               <Button 
                 onClick={handleEmailConnect} 
                 disabled={!email || !password || isLoading} 
-                className="w-full h-11"
+                className="w-full h-11 bg-[#b7132f] text-[#faeed5] hover:bg-[#830c22]"
               >
-                {isLoading ? "Signing in..." : "Sign In"}
+                {isLoading ? "Iniciando sesión..." : "Iniciar sesión"}
               </Button>
               {emailMessage && (
                 <div className="text-sm" style={{ color: emailStatus === 'error' ? 'red' : 'green', marginTop: 8 }}>
@@ -590,7 +553,7 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
                 }}
                 className="w-full pt-2 text-center text-sm font-medium text-foreground hover:text-foreground hover:underline cursor-pointer"
               >
-                <LocalizedText>Recover with mnemonic</LocalizedText>
+                Recuperar con frase semilla
               </button>
             </div>
           )}
@@ -610,7 +573,8 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
           )}
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
+
+  return embedded ? modalContent : createPortal(modalContent, document.body);
 }

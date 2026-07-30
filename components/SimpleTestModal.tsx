@@ -6,7 +6,7 @@ export default function SimpleTestModal({ onClose }: { onClose?: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200]">
       <div className="bg-card text-card-foreground p-8 rounded-lg border border-border">
-        <h2>Simple Test Modal is working!</h2>
+        <h2>¡El modal de prueba funciona!</h2>
         <button 
           onClick={() => {
             console.log('Close button clicked');

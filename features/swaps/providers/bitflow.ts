@@ -153,7 +153,7 @@ export const bitflowProvider: SwapProvider = {
     }
 
     // Bitflow's executeSwap currently invokes a legacy Stacks UserSession path.
-    // The documented getSwapParams alternative lets BBOX submit the exact same
+    // The documented getSwapParams alternative lets CHOLO submit the exact same
     // restricted call through the wallet's current RPC provider instead.
     const response = await provider.request('stx_callContract', {
       contract: `${prepared.contractAddress}.${prepared.contractName}`,

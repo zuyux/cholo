@@ -16,8 +16,8 @@ export default function AddressPage() {
     return (
       <div className='flex flex-col items-center justify-center min-h-[60vh]'>
         <div className='bg-[#333] rounded-full h-24 w-24 flex items-center justify-center mb-8'></div>
-        <h2 className='text-2xl mb-2'>Profile</h2>
-        <p className='text-sm text-[#777]'>No address provided.</p>
+        <h2 className='text-2xl mb-2'>Perfil</h2>
+        <p className='text-sm text-[#777]'>No se proporcionó ninguna dirección.</p>
       </div>
     );
   }

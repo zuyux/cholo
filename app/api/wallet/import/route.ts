@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     if (body.action === 'check') {
       return account
         ? NextResponse.json({ exists: true, walletLabel: account.wallet_label })
-        : NextResponse.json({ exists: false, error: 'No BBOX account was found for this recovery phrase.' }, { status: 404 });
+        : NextResponse.json({ exists: false, error: 'No CHOLO account was found for this recovery phrase.' }, { status: 404 });
     }
 
     if (body.action !== 'recover' || !account) {

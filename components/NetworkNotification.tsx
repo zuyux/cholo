@@ -81,7 +81,7 @@ export function NetworkNotification() {
         <button
           onClick={handleDismiss}
           className="flex-shrink-0 opacity-70 hover:opacity-100 transition-opacity"
-          aria-label="Dismiss notification"
+          aria-label="Descartar notificación"
         >
           <X className="h-4 w-4" />
         </button>

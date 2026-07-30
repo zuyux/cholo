@@ -52,7 +52,7 @@ export default function PasswordAuthModal({ sessionData, onSuccess, onClose }: P
           <div className="flex justify-center mb-4">
             <Shield className="w-12 h-12 text-[#2563eb]" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Enter Password</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Ingresa tu contraseña</h2>
           <p className="text-gray-400">
             This wallet is password-protected. Enter your password to continue.
           </p>
@@ -72,7 +72,7 @@ export default function PasswordAuthModal({ sessionData, onSuccess, onClose }: P
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
+                placeholder="Ingresa tu contraseña"
                 className="bg-[#181818] border-[#333] text-white pr-12"
                 disabled={loading}
                 autoFocus
@@ -101,7 +101,7 @@ export default function PasswordAuthModal({ sessionData, onSuccess, onClose }: P
             <div className="flex items-start gap-2">
               <Shield className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
               <div className="text-sm text-blue-400">
-                <p className="font-semibold mb-1">Security Note:</p>
+                <p className="font-semibold mb-1">Nota de seguridad:</p>
                 <p className="text-xs">
                   This is the password you used when creating your email backup. 
                   It&apos;s different from your seed phrase.

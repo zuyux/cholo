@@ -130,7 +130,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email address"
+              placeholder="Ingresa tu correo electrónico"
               className="bg-white text-black border-gray-300 focus-none focus:bg-white placeholder:text-gray-500"
               disabled={isLoading}
               autoComplete="email"
@@ -188,7 +188,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
                 type={showConfirm ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm your password"
+                placeholder="Confirma tu contraseña"
                 className={`pr-12 bg-white text-black border-gray-300 focus:border-blue-500 focus:bg-white placeholder:text-gray-500 ${
                   confirmPassword && !passwordMatch ? 'border-red-500' : ''
                 }`}
@@ -217,7 +217,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
         {showStrengthIndicator && strengthInfo && touched && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">Password Strength:</span>
+              <span className="text-gray-400">Seguridad de la contraseña:</span>
               <span className={`font-medium ${strengthInfo.isValid ? 'text-green-400' : 'text-red-400'}`}>
                 {getStrengthText(strengthInfo.score)}
               </span>
@@ -262,7 +262,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
           <Button
             type="submit"
             disabled={!isFormValid || isLoading}
-            className="flex-1 text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="flex-1 text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {isLoading ? (
               <div className="flex items-center gap-2">

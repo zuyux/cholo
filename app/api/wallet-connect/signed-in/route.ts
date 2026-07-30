@@ -5,8 +5,6 @@ import { sendAccountActivityNotification } from '@/lib/accountActivityNotificati
 const WALLET_PROVIDERS = new Set([
   'leather',
   'xverse',
-  'alby',
-  'nostria',
   'okx',
   'walletconnect',
 ]);

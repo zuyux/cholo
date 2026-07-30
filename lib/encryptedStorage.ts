@@ -235,7 +235,7 @@ export async function storeEncryptedWallet(
   localStorage.setItem(CONFIG_KEY, JSON.stringify(DEFAULT_CONFIG));
 
   // Dispatch event for UI updates
-  window.dispatchEvent(new Event('bbox-encrypted-session-created'));
+  window.dispatchEvent(new Event('cholo-encrypted-session-created'));
 }
 
 /**
@@ -312,7 +312,7 @@ export async function retrieveEncryptedWallet(passphrase: string): Promise<Walle
     localStorage.setItem(STORAGE_KEY, JSON.stringify(encryptedData));
 
     // Dispatch event for session activity
-    window.dispatchEvent(new Event('bbox-session-accessed'));
+    window.dispatchEvent(new Event('cholo-session-accessed'));
 
     return {
       mnemonic,
@@ -377,7 +377,7 @@ export function lockSession(): void {
   if (typeof window === 'undefined') return;
   
   localStorage.setItem(SESSION_LOCK_KEY, 'true');
-  window.dispatchEvent(new Event('bbox-session-locked'));
+  window.dispatchEvent(new Event('cholo-session-locked'));
 }
 
 /**
@@ -395,7 +395,7 @@ export function unlockSession(): void {
   if (typeof window === 'undefined') return;
   
   localStorage.removeItem(SESSION_LOCK_KEY);
-  window.dispatchEvent(new Event('bbox-session-unlocked'));
+  window.dispatchEvent(new Event('cholo-session-unlocked'));
 }
 
 /**
@@ -415,7 +415,7 @@ export function extendSession(): boolean {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(encryptedData));
     
     // Dispatch event for session activity
-    window.dispatchEvent(new Event('bbox-session-accessed'));
+    window.dispatchEvent(new Event('cholo-session-accessed'));
     
     return true;
   } catch (error) {
@@ -474,7 +474,7 @@ export function updateSessionConfig(config: Partial<SessionConfig>): void {
   const newConfig = { ...currentConfig, ...config };
   localStorage.setItem(CONFIG_KEY, JSON.stringify(newConfig));
   
-  window.dispatchEvent(new Event('bbox-session-config-updated'));
+  window.dispatchEvent(new Event('cholo-session-config-updated'));
 }
 
 /**
@@ -509,7 +509,7 @@ export function deleteWallet(address: string) {
   localStorage.removeItem(`encrypted_wallet_${address}`);
   localStorage.removeItem(`wallet_config_${address}`);
 
-  window.dispatchEvent(new Event('bbox-session-deleted'));
+  window.dispatchEvent(new Event('cholo-session-deleted'));
 }
 
 /**
@@ -528,7 +528,7 @@ export async function changeWalletPassphrase(
   // Store with new passphrase
   await storeEncryptedWallet(walletData, newPassphrase);
   
-  window.dispatchEvent(new Event('bbox-passphrase-changed'));
+  window.dispatchEvent(new Event('cholo-passphrase-changed'));
 }
 
 export function getStoredEncryptedWallet(): EncryptedWalletData | null {
@@ -584,7 +584,7 @@ export function updateEncryptedWalletAddresses(updates: WalletAddressUpdates): W
       }
     }
 
-    window.dispatchEvent(new Event('bbox-encrypted-wallet-updated'));
+    window.dispatchEvent(new Event('cholo-encrypted-wallet-updated'));
     return updates;
   } catch (error) {
     console.error('Failed to update encrypted wallet addresses:', error);

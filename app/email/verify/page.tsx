@@ -38,7 +38,7 @@ export default function VerifyEmailPage() {
         }
 
         setStatus('success');
-        setMessage("Your email has been verified successfully. You can now return to BBOX.");
+        setMessage("Your email has been verified successfully. You can now return to CHOLO.");
       } catch (error) {
         console.error('Verify email error:', error);
         setStatus('error');
@@ -67,7 +67,7 @@ export default function VerifyEmailPage() {
         <p className="text-muted-foreground">{message}</p>
         <div className="flex flex-col gap-3">
           <Button asChild className="cursor-pointer">
-            <Link href="/"><LocalizedText>Return to BBOX</LocalizedText></Link>
+            <Link href="/"><LocalizedText>Return to CHOLO</LocalizedText></Link>
           </Button>
           {status === 'error' && (
             <Button variant="outline" asChild className="cursor-pointer">

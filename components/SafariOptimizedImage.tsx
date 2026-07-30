@@ -101,7 +101,7 @@ export default function SafariOptimizedImage({
       >
         <div className="text-center p-4">
           <div className="text-muted-foreground text-sm mb-2">🖼️</div>
-          <div className="text-muted-foreground text-xs">Image failed to load</div>
+          <div className="text-muted-foreground text-xs">No se pudo cargar la imagen</div>
         </div>
       </div>
     );

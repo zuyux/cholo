@@ -101,7 +101,7 @@ export default function WalletRecoveryPage() {
       const walletData = await validateAndGenerateWallet(mnemonic);
       return {
         ...walletData,
-        label: `BBOX Wallet - ${email}`,
+        label: `CHOLO Wallet - ${email}`,
       };
     } catch (error) {
       console.error('Failed to generate wallet:', error);
@@ -271,7 +271,7 @@ export default function WalletRecoveryPage() {
               {/* Continue Button */}
               <Button
                 onClick={handleContinueToPassphrase}
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 cursor-pointer transition-colors"
+                className="w-full bg-red-600 hover:bg-red-500 text-white font-semibold py-3 cursor-pointer transition-colors"
               >
                 <Key className="w-4 h-4 mr-2" />
                 <LocalizedText>Continue to Set Passphrase
@@ -302,7 +302,7 @@ export default function WalletRecoveryPage() {
                   type="password"
                   value={passphrase}
                   onChange={(e) => setPassphrase(e.target.value)}
-                  placeholder="Enter a strong passphrase"
+                  placeholder="Ingresa una frase de contraseña segura"
                   className="bg-[#2a2a2a] border-gray-600 text-white placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500/20"
                   disabled={isCreatingWallet}
                 />
@@ -317,7 +317,7 @@ export default function WalletRecoveryPage() {
                   type="password"
                   value={confirmPassphrase}
                   onChange={(e) => setConfirmPassphrase(e.target.value)}
-                  placeholder="Confirm your passphrase"
+                  placeholder="Confirma tu frase de contraseña"
                   className="bg-[#2a2a2a] border-gray-600 text-white placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500/20"
                   disabled={isCreatingWallet}
                 />

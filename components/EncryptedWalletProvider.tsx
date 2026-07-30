@@ -129,31 +129,31 @@ export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
     // Listen for session events and cross-tab storage updates
     const handleStorageEvents = (event: Event) => {
       switch (event.type) {
-        case 'bbox-encrypted-session-created':
+        case 'cholo-encrypted-session-created':
           setIsWalletEncrypted(true);
           setWalletInfo(getWalletInfo());
           setIsAuthenticated(true);
           setIsSessionLocked(false);
           break;
-        case 'bbox-session-locked':
+        case 'cholo-session-locked':
           setIsSessionLocked(true);
           setIsAuthenticated(false);
           setCurrentWallet(null);
           break;
-        case 'bbox-session-unlocked':
+        case 'cholo-session-unlocked':
           setIsSessionLocked(false);
           break;
-        case 'bbox-session-deleted':
+        case 'cholo-session-deleted':
           setIsWalletEncrypted(false);
           setWalletInfo(null);
           setIsAuthenticated(false);
           setCurrentWallet(null);
           setIsSessionLocked(false);
           break;
-        case 'bbox-session-accessed':
+        case 'cholo-session-accessed':
           // Session activity detected, could update UI indicators
           break;
-        case 'bbox-encrypted-wallet-updated':
+        case 'cholo-encrypted-wallet-updated':
           setWalletInfo(getWalletInfo());
           setCurrentWallet((wallet) => {
             const info = getWalletInfo();
@@ -192,21 +192,21 @@ export const EncryptedWalletProvider: FC<ProviderProps> = ({ children }) => {
     };
 
     // Add event listeners
-    window.addEventListener('bbox-encrypted-session-created', handleStorageEvents);
-    window.addEventListener('bbox-session-locked', handleStorageEvents);
-    window.addEventListener('bbox-session-unlocked', handleStorageEvents);
-    window.addEventListener('bbox-session-deleted', handleStorageEvents);
-    window.addEventListener('bbox-session-accessed', handleStorageEvents);
-    window.addEventListener('bbox-encrypted-wallet-updated', handleStorageEvents);
+    window.addEventListener('cholo-encrypted-session-created', handleStorageEvents);
+    window.addEventListener('cholo-session-locked', handleStorageEvents);
+    window.addEventListener('cholo-session-unlocked', handleStorageEvents);
+    window.addEventListener('cholo-session-deleted', handleStorageEvents);
+    window.addEventListener('cholo-session-accessed', handleStorageEvents);
+    window.addEventListener('cholo-encrypted-wallet-updated', handleStorageEvents);
     window.addEventListener('storage', handleNativeStorage);
 
     return () => {
-      window.removeEventListener('bbox-encrypted-session-created', handleStorageEvents);
-      window.removeEventListener('bbox-session-locked', handleStorageEvents);
-      window.removeEventListener('bbox-session-unlocked', handleStorageEvents);
-      window.removeEventListener('bbox-session-deleted', handleStorageEvents);
-      window.removeEventListener('bbox-session-accessed', handleStorageEvents);
-      window.removeEventListener('bbox-encrypted-wallet-updated', handleStorageEvents);
+      window.removeEventListener('cholo-encrypted-session-created', handleStorageEvents);
+      window.removeEventListener('cholo-session-locked', handleStorageEvents);
+      window.removeEventListener('cholo-session-unlocked', handleStorageEvents);
+      window.removeEventListener('cholo-session-deleted', handleStorageEvents);
+      window.removeEventListener('cholo-session-accessed', handleStorageEvents);
+      window.removeEventListener('cholo-encrypted-wallet-updated', handleStorageEvents);
       window.removeEventListener('storage', handleNativeStorage);
     };
   }, []);

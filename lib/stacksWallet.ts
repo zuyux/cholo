@@ -7,7 +7,7 @@ import { getNostrPublicKeyFromPrivateKey } from './nostr';
 
 export type MnemonicLanguage = 'en' | 'es' | 'pt';
 
-const MNEMONIC_LANGUAGE_STORAGE_KEY = 'bbox_mnemonic_language';
+const MNEMONIC_LANGUAGE_STORAGE_KEY = 'cholo_mnemonic_language';
 
 const mnemonicWordlists: Record<MnemonicLanguage, string[]> = {
   en: wordlists.english,

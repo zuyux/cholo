@@ -98,11 +98,11 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
         onSuccess?.(password);
       } else {
         setStep('error');
-        setErrorMessage(data.error || 'Failed to send backup email');
+        setErrorMessage(data.error || 'No se pudo enviar el correo de respaldo');
       }
     } catch {
       setStep('error');
-      setErrorMessage('Network error. Please check your connection and try again.');
+      setErrorMessage('Error de red. Revisa tu conexión e inténtalo de nuevo.');
     }
   };
 
@@ -114,8 +114,8 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
             <div className="flex justify-center mb-4">
               <LoaderCircle className="animate-spin text-primary" size={40} strokeWidth={2.5} />
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">Sending Encrypted Backup</h3>
-            <p className="text-gray-400">Encrypting your wallet and sending it to your email...</p>
+            <h3 className="text-xl font-semibold text-white mb-2">Enviando respaldo cifrado</h3>
+            <p className="text-gray-400">Cifrando tu billetera y enviándola a tu correo...</p>
           </div>
         );
         
@@ -125,20 +125,20 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
             <div className="flex justify-center mb-4">
               <CheckCircle2 className="w-16 h-16 text-green-500" />
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">Backup Sent Successfully!</h3>
+            <h3 className="text-xl font-semibold text-white mb-2">¡Respaldo enviado correctamente!</h3>
             <p className="text-gray-400 mb-6">
-              We&apos;ve sent an encrypted backup of your wallet to <strong className="text-white">{email}</strong>
+              Enviamos un respaldo cifrado de tu billetera a <strong className="text-white">{email}</strong>
             </p>
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-6">
               <div className="flex items-start gap-2">
                 <Shield className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
                 <div className="text-sm text-blue-400">
-                  <p className="font-semibold mb-1">Next Steps:</p>
+                  <p className="font-semibold mb-1">Próximos pasos:</p>
                   <ul className="space-y-1 text-xs text-left">
-                    <li>• Check your email for the recovery link</li>
-                    <li>• Keep your password safe - we cannot recover it</li>
-                    <li>• You can use the link to restore your wallet anytime</li>
-                    <li>• Save the recovery link securely for future use</li>
+                    <li>• Revisa tu correo para encontrar el enlace de recuperación</li>
+                    <li>• Guarda tu contraseña; nosotros no podemos recuperarla</li>
+                    <li>• Puedes usar el enlace para restaurar tu billetera en cualquier momento</li>
+                    <li>• Guarda el enlace de recuperación en un lugar seguro</li>
                   </ul>
                 </div>
               </div>
@@ -147,7 +147,7 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
               onClick={onClose}
               className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
             >
-              Continue
+              Continuar
             </Button>
           </div>
         );
@@ -158,21 +158,21 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
             <div className="flex justify-center mb-4">
               <AlertCircle className="w-16 h-16 text-red-500" />
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">Backup Failed</h3>
+            <h3 className="text-xl font-semibold text-white mb-2">Falló el respaldo</h3>
             <p className="text-gray-400 mb-6">{errorMessage}</p>
             <div className="space-y-3">
               <Button
                 onClick={() => setStep('form')}
                 className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
               >
-                Try Again
+                Intentar de nuevo
               </Button>
               <Button
                 onClick={onClose}
                 variant="outline"
                 className="w-full border-[#333] text-gray-300 hover:bg-[#222]"
               >
-                Skip Backup
+                Omitir respaldo
               </Button>
             </div>
           </div>
@@ -183,14 +183,14 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-white">
-                Email Address
+                Correo electrónico
               </Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="your.email@example.com"
+                placeholder="tu.correo@ejemplo.com"
                 className="bg-[#181818] border-[#333] text-white"
                 required
               />
@@ -198,7 +198,7 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
 
             <div className="space-y-2">
               <Label htmlFor="password" className="text-white">
-                Backup Password
+                Contraseña del respaldo
               </Label>
               <div className="relative">
                 <Input
@@ -206,7 +206,7 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Create a strong password (min 12 chars)"
+                  placeholder="Crea una contraseña segura (mínimo 12 caracteres)"
                   className="bg-[#181818] border-[#333] text-white pr-12"
                   required
                 />
@@ -222,7 +222,7 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword" className="text-white">
-                Confirm Password
+                Confirmar contraseña
               </Label>
               <div className="relative">
                 <Input
@@ -230,7 +230,7 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm your password"
+                  placeholder="Confirma tu contraseña"
                   className="bg-[#181818] border-[#333] text-white pr-12"
                   required
                 />
@@ -261,12 +261,12 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
               <div className="flex items-start gap-2">
                 <Shield className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
                 <div className="text-sm text-blue-400">
-                  <p className="font-semibold mb-1">Security Features:</p>
+                  <p className="font-semibold mb-1">Funciones de seguridad:</p>
                   <ul className="space-y-1 text-xs">
-                    <li>• Your wallet is encrypted with your password</li>
-                    <li>• Recovery link does not expire</li>
-                    <li>• Password cannot be recovered - keep it safe</li>
-                    <li>• Email backup is optional but recommended</li>
+                    <li>• Tu billetera se cifra con tu contraseña</li>
+                    <li>• El enlace de recuperación no vence</li>
+                    <li>• La contraseña no se puede recuperar; guárdala bien</li>
+                    <li>• El respaldo por correo es opcional, pero recomendable</li>
                   </ul>
                 </div>
               </div>
@@ -278,7 +278,7 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
                 className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-semibold py-3 cursor-pointer"
               >
                 <Mail className="w-4 h-4 mr-2" />
-                Send Encrypted Backup
+                Enviar respaldo cifrado
               </Button>
               
               <Button
@@ -287,7 +287,7 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
                 variant="outline"
                 className="w-full border-[#333] text-gray-300 hover:bg-[#222] cursor-pointer"
               >
-                Skip
+                Omitir
               </Button>
             </div>
           </form>
@@ -302,9 +302,9 @@ export default function EmailBackupModal({ walletData, onClose, onSuccess }: Ema
           <div className="flex justify-center mb-4">
             <Mail className="w-12 h-12 text-[#2563eb]" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Email Backup</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Respaldo por correo</h2>
           <p className="text-gray-400">
-            Create an encrypted backup of your wallet that can be recovered via email
+            Crea un respaldo cifrado de tu billetera que podrás recuperar por correo electrónico
           </p>
         </div>
 

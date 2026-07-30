@@ -136,7 +136,7 @@ export function BannerImageUpload({
 
   return (
     <div className="space-y-4">
-      <div className="text-sm font-medium text-accent-foreground">Banner Image</div>
+      <div className="text-sm font-medium text-accent-foreground">Imagen de portada</div>
       
       {/* Banner Preview/Display */}
       <div className="relative w-full h-40 bg-white/10 rounded-xl overflow-hidden">
@@ -167,7 +167,7 @@ export function BannerImageUpload({
                 onClick={handleRemove}
                 disabled={isRemoving}
                 className="absolute top-2 right-2 p-2 bg-red-600 hover:bg-red-700 text-accent-background disabled:bg-red-600/50 rounded-lg transition-colors"
-                title="Remove banner"
+                title="Eliminar portada"
               >
                 {isRemoving ? (
                   <Loader2 className="w-4 h-4 text-accent-background animate-spin" />
@@ -182,7 +182,7 @@ export function BannerImageUpload({
               <button
                 onClick={cancelPreview}
                 className="absolute top-2 right-2 p-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors"
-                title="Cancel"
+                title="Cancelar"
               >
                 <X className="w-4 h-4 text-accent-foreground" />
               </button>
@@ -192,8 +192,8 @@ export function BannerImageUpload({
           /* Upload area when no image */
           <div className="flex flex-col items-center justify-center h-full text-accent-foreground/60">
             <ImageIcon className="w-12 h-12 mb-2" />
-            <p className="text-sm">No banner image</p>
-            <p className="text-xs text-accent-foreground/40">Recommended: 1200x400px</p>
+            <p className="text-sm">Sin imagen de portada</p>
+            <p className="text-xs text-accent-foreground/40">Recomendado: 1200x400 px</p>
           </div>
         )}
       </div>
@@ -218,7 +218,7 @@ export function BannerImageUpload({
           <button
             onClick={handleUpload}
             disabled={isUploading}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-background rounded-lg transition-colors text-sm cursor-pointer"
+            className="px-6 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-600/50 text-background rounded-lg transition-colors text-sm cursor-pointer"
           >
             {isUploading ? (
               <>

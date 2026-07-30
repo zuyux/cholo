@@ -52,7 +52,7 @@ interface EmailOptions {
 export async function sendEmail(options: EmailOptions) {
   try {
     if (!resendFromAddress) {
-      const message = 'RESEND_FROM_EMAIL is not configured. Set it to a verified sender, like noreply@example.com or BBOX <noreply@example.com>.';
+      const message = 'RESEND_FROM_EMAIL is not configured. Set it to a verified sender, like noreply@example.com or CHOLO <noreply@example.com>.';
       if (process.env.NODE_ENV !== 'production') {
         return simulateEmailSend(options, 'missing-from-address');
       }
@@ -103,19 +103,19 @@ export async function sendEmail(options: EmailOptions) {
 // Email templates
 export const emailTemplates = {
   waitlistWelcome: (email: string) => ({
-    subject: "Welcome to the BBOX Waitlist!",
+    subject: "Welcome to the CHOLO Waitlist!",
     html: `
       <div style="background:#000;padding:32px 24px;color:#fff;font-family:'Jersey 10',cursive;">
       <div style="background:#000;padding:32px 24px;border-radius:16px;text-align:center;max-width:480px;margin:auto;">
-        <h1 style="color:#ff8a00;font-size:2rem;font-weight:700;margin-bottom:12px;letter-spacing:1px;">Welcome to the BBOX Waitlist!</h1>
+        <h1 style="color:#ff8a00;font-size:2rem;font-weight:700;margin-bottom:12px;letter-spacing:1px;">Welcome to the CHOLO Waitlist!</h1>
         <p style="font-size:1.1rem;margin-bottom:18px;">Hey <b>${email}</b>,</p>
         <p style="font-size:1rem;margin-bottom:18px;">We're excited to have you join the registry for verified open-source software and digital sovereignty.<br />
         You'll be the first to know about exclusive features, updates, and early access opportunities.</p>
         <div style="margin:24px 0;">
-          <a href="https://bbox.app" style="display:inline-block;padding:12px 32px;background:#ff006a;color:#fff;border-radius:8px;font-weight:600;text-decoration:none;font-size:1.1rem;box-shadow:0 2px 8px #0002;">Visit BBOX</a>
+          <a href="https://cholo.app" style="display:inline-block;padding:12px 32px;background:#ff006a;color:#fff;border-radius:8px;font-weight:600;text-decoration:none;font-size:1.1rem;box-shadow:0 2px 8px #0002;">Visit CHOLO</a>
         </div>
         <hr style="border:none;border-top:1px solid #333;margin:32px 0;" />
-        <p style="color:#898989;font-size:13px;">BBOX &mdash; The Universal Registry for Verified Software</p>
+        <p style="color:#898989;font-size:13px;">CHOLO &mdash; The Universal Registry for Verified Software</p>
       </div>
       </div>
     `
@@ -127,17 +127,17 @@ export const emailTemplates = {
     removeUrl: string;
     expiresInHours: number;
   }) => ({
-    subject: "BBOX Account Created Successfully",
+    subject: "CHOLO Account Created Successfully",
     html: `
       <div style="background:#000;padding:32px 24px;color:#fff;font-family:'Jersey 10',cursive;">
       <div style="background:#000;padding:32px 24px;border-radius:16px;max-width:600px;margin:auto;">
-        <h2 style="color:#ff8a00;margin-bottom:20px;">Welcome to BBOX — we're glad you're here!</h2>
+        <h2 style="color:#ff8a00;margin-bottom:20px;">Welcome to CHOLO — we're glad you're here!</h2>
         <p>Your account has been created successfully. You are now part of a growing community helping make trustworthy open-source software easier to discover, support, and preserve.</p>
 
         <div style="margin:28px 0;padding:24px;border:1px solid #2f2f33;border-radius:12px;background:#000;">
-          <h3 style="margin-top:0;color:#ff8a00;">What is BBOX?</h3>
-          <p style="margin:8px 0;color:#e5e5e5;"><strong>BBOX is short for Bitcoin Box</strong> — an open home for high-integrity software and the people who build it.</p>
-          <p style="margin:12px 0 0;color:#e5e5e5;">BBOX is a Bitcoin-anchored registry and funding layer where anyone can discover verified open-source apps, review transparent project information, support public goods, and follow the work behind each project. Builders keep control of their records while Bitcoin provides a durable, auditable foundation.</p>
+          <h3 style="margin-top:0;color:#ff8a00;">What is CHOLO?</h3>
+          <p style="margin:8px 0;color:#e5e5e5;"><strong>CHOLO is short for Bitcoin Box</strong> — an open home for high-integrity software and the people who build it.</p>
+          <p style="margin:12px 0 0;color:#e5e5e5;">CHOLO is a Bitcoin-anchored registry and funding layer where anyone can discover verified open-source apps, review transparent project information, support public goods, and follow the work behind each project. Builders keep control of their records while Bitcoin provides a durable, auditable foundation.</p>
         </div>
 
         <p><strong>Bitcoin Address:</strong> <code style="background:#000;border:1px solid #333;padding:4px 8px;border-radius:4px;color:#fff;">${bitcoinAddress}</code></p>
@@ -164,7 +164,7 @@ export const emailTemplates = {
           <p style="margin:0;color:#ff8a00;"><strong>⚠️ Important Security Notice:</strong></p>
           <p style="margin:8px 0 0 0;">Keep your mnemonic/seed phrase safe. Never share it with anyone. This is the only way to recover your wallet.</p>
         </div>
-        <p style="color:#898989;font-size:13px;">BBOX &mdash; The Universal Registry for Verified Software</p>
+        <p style="color:#898989;font-size:13px;">CHOLO &mdash; The Universal Registry for Verified Software</p>
       </div>
       </div>
     `
@@ -173,17 +173,17 @@ export const emailTemplates = {
   verifiedAccountCreated: ({ bitcoinAddress }: {
     bitcoinAddress: string;
   }) => ({
-    subject: "BBOX Account Created Successfully",
+    subject: "CHOLO Account Created Successfully",
     html: `
       <div style="background:#000;padding:32px 24px;color:#fff;font-family:Arial,sans-serif;">
       <div style="background:#000;padding:32px 24px;border-radius:16px;max-width:600px;margin:auto;">
-        <h2 style="color:#ff8a00;margin-bottom:20px;">Welcome to BBOX — we're glad you're here!</h2>
+        <h2 style="color:#ff8a00;margin-bottom:20px;">Welcome to CHOLO — we're glad you're here!</h2>
         <p>Your email has been verified and your account is ready. You are now part of a growing community helping make trustworthy open-source software easier to discover, support, and preserve.</p>
 
         <div style="margin:28px 0;padding:24px;border:1px solid #2f2f33;border-radius:12px;background:#000;">
-          <h3 style="margin-top:0;color:#ff8a00;">What is BBOX?</h3>
-          <p style="margin:8px 0;color:#e5e5e5;"><strong>BBOX is short for Bitcoin Box</strong> — an open home for high-integrity software and the people who build it.</p>
-          <p style="margin:12px 0 0;color:#e5e5e5;">BBOX is a Bitcoin-anchored registry and funding layer where anyone can discover verified open-source apps, review transparent project information, support public goods, and follow the work behind each project. Builders keep control of their records while Bitcoin provides a durable, auditable foundation.</p>
+          <h3 style="margin-top:0;color:#ff8a00;">What is CHOLO?</h3>
+          <p style="margin:8px 0;color:#e5e5e5;"><strong>CHOLO is short for Bitcoin Box</strong> — an open home for high-integrity software and the people who build it.</p>
+          <p style="margin:12px 0 0;color:#e5e5e5;">CHOLO is a Bitcoin-anchored registry and funding layer where anyone can discover verified open-source apps, review transparent project information, support public goods, and follow the work behind each project. Builders keep control of their records while Bitcoin provides a durable, auditable foundation.</p>
         </div>
 
         <p><strong>Bitcoin Address:</strong> <code style="background:#000;border:1px solid #333;padding:4px 8px;border-radius:4px;color:#fff;">${bitcoinAddress}</code></p>
@@ -191,7 +191,7 @@ export const emailTemplates = {
           <p style="margin:0;color:#ff8a00;"><strong>Important Security Notice:</strong></p>
           <p style="margin:8px 0 0 0;">Keep your mnemonic/seed phrase safe. Never share it with anyone. This is the only way to recover your wallet.</p>
         </div>
-        <p style="color:#898989;font-size:13px;">BBOX &mdash; The Universal Registry for Verified Software</p>
+        <p style="color:#898989;font-size:13px;">CHOLO &mdash; The Universal Registry for Verified Software</p>
       </div>
       </div>
     `
@@ -201,25 +201,25 @@ export const emailTemplates = {
     code: string;
     expiresInMinutes: number;
   }) => ({
-    subject: "Your BBOX verification code",
+    subject: "Your CHOLO verification code",
     html: `
       <div style="background:#000;padding:32px 24px;color:#fff;font-family:Arial,sans-serif;">
       <div style="background:#000;padding:32px 24px;border-radius:16px;max-width:520px;margin:auto;">
         <h2 style="color:#ff8a00;margin:0 0 18px;">Verify your email</h2>
-        <p style="margin:0 0 18px;color:#e5e5e5;">Enter this code to continue creating your BBOX wallet.</p>
+        <p style="margin:0 0 18px;color:#e5e5e5;">Enter this code to continue creating your CHOLO wallet.</p>
         <div style="letter-spacing:8px;font-size:32px;font-weight:700;text-align:center;background:#000;border:1px solid #2f2f33;border-radius:12px;padding:22px;margin:24px 0;color:#fff;">
           ${code}
         </div>
         <p style="margin:0 0 14px;color:#9ca3af;font-size:14px;">This code expires in ${expiresInMinutes} minutes.</p>
         <p style="margin:0;color:#9ca3af;font-size:14px;">If you did not request this, you can ignore this email.</p>
-        <p style="color:#898989;font-size:12px;margin-top:28px;">BBOX &mdash; The Universal Registry for Verified Software</p>
+        <p style="color:#898989;font-size:12px;margin-top:28px;">CHOLO &mdash; The Universal Registry for Verified Software</p>
       </div>
       </div>
     `
   }),
 
   walletConnectionLink: (connectionUrl: string) => ({
-    subject: "🔐 Account Connection Link - BBOX",
+    subject: "🔐 Account Connection Link - CHOLO",
     html: `
       <!DOCTYPE html>
       <html>
@@ -239,7 +239,7 @@ export const emailTemplates = {
           
           <p>Hello!</p>
           
-          <p>You requested to connect your account to BBOX. Click the button below to complete the connection process:</p>
+          <p>You requested to connect your account to CHOLO. Click the button below to complete the connection process:</p>
           
           <div style="text-align: center; margin: 30px 0;">
             <a href="${connectionUrl}" 
@@ -259,7 +259,7 @@ export const emailTemplates = {
           <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
           
           <p style="color: #999; font-size: 12px; text-align: center;">
-            This email was sent by BBOX Platform<br>
+            This email was sent by CHOLO Platform<br>
             If you can't click the button, copy and paste this link: ${connectionUrl}
           </p>
         </div>

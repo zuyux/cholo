@@ -27,11 +27,11 @@ import { getPersistedNetwork, type Network } from './network';
 import { getApiUrl } from './stacks-api';
 import { getSbtcAssetString, getSBTCContract } from './contracts';
 
-// BBOX Contract addresses per network
-const BBOX_CONTRACTS = {
-  mainnet: 'SP000000000000000000002Q6VF78.bbox', // Update with actual mainnet address when deployed
-  testnet: 'ST193GXQTNHVV9WSAPHAB89M6R9QSEXZKS3N9P3DZ.bbox-v2',
-  devnet: 'ST193GXQTNHVV9WSAPHAB89M6R9QSEXZKS3N9P3DZ.bbox-v2',
+// CHOLO Contract addresses per network
+const CHOLO_CONTRACTS = {
+  mainnet: 'SP000000000000000000002Q6VF78.cholo', // Update with actual mainnet address when deployed
+  testnet: 'ST193GXQTNHVV9WSAPHAB89M6R9QSEXZKS3N9P3DZ.cholo-v2',
+  devnet: 'ST193GXQTNHVV9WSAPHAB89M6R9QSEXZKS3N9P3DZ.cholo-v2',
 };
 
 export const DEFAULT_LISTING_FEE = {
@@ -54,9 +54,9 @@ export type ContractAppRecord = {
   updatedAt: number;
 };
 
-export function getBboxContractAddress(): string {
+export function getCholoContractAddress(): string {
   const network = getPersistedNetwork();
-  return BBOX_CONTRACTS[network] || BBOX_CONTRACTS.testnet;
+  return CHOLO_CONTRACTS[network] || CHOLO_CONTRACTS.testnet;
 }
 
 export function getStacksNetwork(): typeof STACKS_MAINNET | typeof STACKS_TESTNET {
@@ -91,7 +91,7 @@ export async function getListingFee(): Promise<{
   try {
     const network = getPersistedNetwork();
     const apiUrl = getApiUrl(network);
-    const contractId = getBboxContractAddress();
+    const contractId = getCholoContractAddress();
     const { contractAddress, contractName } = parseContractAddress(contractId);
 
     const url = `${apiUrl}/v2/contracts/call-read/${contractAddress}/${contractName}/get-listing-fee`;
@@ -217,7 +217,7 @@ export async function getTotalApps(): Promise<number> {
   try {
     const network = getPersistedNetwork();
     const apiUrl = getApiUrl(network);
-    const contractId = getBboxContractAddress();
+    const contractId = getCholoContractAddress();
     const { contractAddress, contractName } = parseContractAddress(contractId);
 
     const url = `${apiUrl}/v2/contracts/call-read/${contractAddress}/${contractName}/get-total-apps`;
@@ -261,7 +261,7 @@ export async function getAppFromContract(appId: number): Promise<ContractAppReco
   try {
     const network = getPersistedNetwork();
     const apiUrl = getApiUrl(network);
-    const contractId = getBboxContractAddress();
+    const contractId = getCholoContractAddress();
     const { contractAddress, contractName } = parseContractAddress(contractId);
 
     const url = `${apiUrl}/v2/contracts/call-read/${contractAddress}/${contractName}/get-app`;
@@ -318,7 +318,7 @@ interface SubmitAppContractOptions {
   listingFee?: { token: string; amount: bigint } | null;
 }
 
-type BboxContractCallOptions = {
+type CholoContractCallOptions = {
   functionName: string;
   functionArgs: ClarityValue[];
   postConditions?: PostCondition[];
@@ -355,13 +355,13 @@ export async function submitAppToContract(
     console.log('   ↳ First post-condition preview:', postConditions[0]);
   }
 
-  await executeBboxContractCall({
+  await executeCholoContractCall({
     functionName: 'submit-app',
     functionArgs: [stringAsciiCV(ipfsHash)],
     postConditions,
     appDetails: {
-      name: 'BBOX',
-      icon: typeof window !== 'undefined' ? `${window.location.origin}/bbox.png` : '',
+      name: 'CHOLO',
+      icon: typeof window !== 'undefined' ? `${window.location.origin}/cholo.png` : '',
     },
     onFinish,
     onCancel,
@@ -378,7 +378,7 @@ export async function voteOnApp(
   onCancel?: () => void
 ): Promise<void> {
   const network = getStacksNetwork();
-  const contractId = getBboxContractAddress();
+  const contractId = getCholoContractAddress();
   const { contractAddress, contractName } = parseContractAddress(contractId);
 
   const { openContractCall } = await import('@stacks/connect');
@@ -415,7 +415,7 @@ export async function rateApp(
   onCancel?: () => void
 ): Promise<void> {
   const network = getStacksNetwork();
-  const contractId = getBboxContractAddress();
+  const contractId = getCholoContractAddress();
   const { contractAddress, contractName } = parseContractAddress(contractId);
 
   if (rating < 1 || rating > 5) {
@@ -451,7 +451,7 @@ export async function approveAppOnChain(
   onFinish?: (txid: string) => void,
   onCancel?: () => void
 ): Promise<void> {
-  await executeBboxContractCall({
+  await executeCholoContractCall({
     functionName: 'approve-app',
     functionArgs: [uintCV(appId)],
     onFinish,
@@ -557,8 +557,8 @@ export async function sendSbtcDonation(options: SendSbtcDonationOptions): Promis
     postConditionMode: PostConditionMode.Deny,
     postConditions: [donationPostCondition],
     appDetails: {
-      name: 'BBOX Funding',
-      icon: typeof window !== 'undefined' ? `${window.location.origin}/bbox.png` : '',
+      name: 'CHOLO Funding',
+      icon: typeof window !== 'undefined' ? `${window.location.origin}/cholo.png` : '',
     },
     onFinish: (data) => {
       console.log('Donation submitted:', data);
@@ -643,7 +643,7 @@ export async function getAdminAddress(): Promise<string | null> {
   try {
     const network = getPersistedNetwork();
     const apiUrl = getApiUrl(network);
-    const contractId = getBboxContractAddress();
+    const contractId = getCholoContractAddress();
     const { contractAddress, contractName } = parseContractAddress(contractId);
 
     const url = `${apiUrl}/v2/contracts/call-read/${contractAddress}/${contractName}/get-admin`;
@@ -679,7 +679,7 @@ export async function getAdminAddress(): Promise<string | null> {
   }
 }
 
-async function executeBboxContractCall(options: BboxContractCallOptions): Promise<void> {
+async function executeCholoContractCall(options: CholoContractCallOptions): Promise<void> {
   const {
     functionName,
     functionArgs,
@@ -691,7 +691,7 @@ async function executeBboxContractCall(options: BboxContractCallOptions): Promis
 
   const resolvedNetwork = getPersistedNetwork();
   const network = getStacksNetwork();
-  const contractId = getBboxContractAddress();
+  const contractId = getCholoContractAddress();
   const { contractAddress, contractName } = parseContractAddress(contractId);
 
   console.log('🔐 Initiating contract call...');
@@ -732,7 +732,7 @@ async function executeBboxContractCall(options: BboxContractCallOptions): Promis
       const errorText = await checkResponse.text();
       console.error('❌ Contract verification failed:', checkResponse.status, errorText);
       throw new Error(
-        `Contract not found (HTTP ${checkResponse.status}). Please deploy the bbox contract to ${contractId} before submitting apps.`
+        `Contract not found (HTTP ${checkResponse.status}). Please deploy the cholo contract to ${contractId} before submitting apps.`
       );
     }
     console.log('✓ Contract verified on network');
@@ -742,7 +742,7 @@ async function executeBboxContractCall(options: BboxContractCallOptions): Promis
       throw error;
     }
     throw new Error(
-      `Contract verification failed. The bbox contract must be deployed at ${contractId} before you can submit apps.`
+      `Contract verification failed. The cholo contract must be deployed at ${contractId} before you can submit apps.`
     );
   }
 
@@ -861,8 +861,8 @@ async function executeBboxContractCall(options: BboxContractCallOptions): Promis
   const { openContractCall } = await import('@stacks/connect');
 
   const fallbackAppDetails = appDetails ?? {
-    name: 'BBOX',
-    icon: typeof window !== 'undefined' ? `${window.location.origin}/bbox.png` : '',
+    name: 'CHOLO',
+    icon: typeof window !== 'undefined' ? `${window.location.origin}/cholo.png` : '',
   };
 
   const contractCallOptions = {
@@ -938,7 +938,7 @@ export async function getUserVote(
   try {
     const network = getPersistedNetwork();
     const apiUrl = getApiUrl(network);
-    const contractId = getBboxContractAddress();
+    const contractId = getCholoContractAddress();
     const { contractAddress, contractName } = parseContractAddress(contractId);
 
     const url = `${apiUrl}/v2/contracts/call-read/${contractAddress}/${contractName}/get-user-vote`;
@@ -976,7 +976,7 @@ export async function getUserRating(
   try {
     const network = getPersistedNetwork();
     const apiUrl = getApiUrl(network);
-    const contractId = getBboxContractAddress();
+    const contractId = getCholoContractAddress();
     const { contractAddress, contractName } = parseContractAddress(contractId);
 
     const url = `${apiUrl}/v2/contracts/call-read/${contractAddress}/${contractName}/get-user-rating`;
@@ -1034,7 +1034,7 @@ export function getExplorerTxUrl(txId: string, network: string): string {
  * Get contract explorer URL
  */
 export function getExplorerContractUrl(network: string): string {
-  const contractId = getBboxContractAddress();
+  const contractId = getCholoContractAddress();
   const [address, name] = contractId.split('.');
   return `https://explorer.hiro.so/address/${address}?chain=${network}#${name}`;
 }
@@ -1124,7 +1124,7 @@ function buildListingFeePostConditions(
   token: string,
   networkKey: Network
 ): PostCondition[] {
-  // The bbox contract already limits how much sBTC can be transferred when submitting an app.
+  // The cholo contract already limits how much sBTC can be transferred when submitting an app.
   // Our previous attempt at mirroring this with a wallet-side post-condition caused false
   // positives (wallet interpreted the contract address as the token owner and rolled back
   // otherwise successful transactions). Until we ship a more precise post-condition builder,

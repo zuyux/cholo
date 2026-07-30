@@ -2,12 +2,12 @@ import { AddressPurpose, BitcoinNetworkType, request as satsRequest } from 'sats
 
 import { getWalletErrorMessage, isWalletRequestCancelled } from '@/lib/walletErrors';
 
-const BBOX_SIGN_IN_DOMAIN = 'bbox.lol';
-const BBOX_SIGN_IN_URI = 'https://bbox.lol';
-const BBOX_SIGN_IN_STATEMENT = 'BBOX';
-const BBOX_SIGN_IN_VERSION = '1';
-const BBOX_SIGN_IN_CHAIN_ID = '1';
-const BBOX_SIGN_IN_NETWORK = BitcoinNetworkType.Mainnet;
+const CHOLO_SIGN_IN_DOMAIN = 'cholo.meme';
+const CHOLO_SIGN_IN_URI = 'https://cholo.meme';
+const CHOLO_SIGN_IN_STATEMENT = 'CHOLO';
+const CHOLO_SIGN_IN_VERSION = '1';
+const CHOLO_SIGN_IN_CHAIN_ID = '1';
+const CHOLO_SIGN_IN_NETWORK = BitcoinNetworkType.Mainnet;
 const MAINNET_STACKS_ADDRESS_PREFIXES = ['SP', 'SM'];
 
 type RpcSignatureResponse = {
@@ -64,14 +64,14 @@ const createNonce = () => {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 };
 
-export const buildBboxStacksSignInMessage = (address: string, issuedAt = new Date()) => {
+export const buildCholoStacksSignInMessage = (address: string, issuedAt = new Date()) => {
   return [
-    `${BBOX_SIGN_IN_DOMAIN} wants you to sign in with your Stacks account:`,
+    `${CHOLO_SIGN_IN_DOMAIN} wants you to sign in with your Stacks account:`,
     address,
-    BBOX_SIGN_IN_STATEMENT,
-    `URI: ${BBOX_SIGN_IN_URI}`,
-    `Version: ${BBOX_SIGN_IN_VERSION}`,
-    `Chain ID: ${BBOX_SIGN_IN_CHAIN_ID}`,
+    CHOLO_SIGN_IN_STATEMENT,
+    `URI: ${CHOLO_SIGN_IN_URI}`,
+    `Version: ${CHOLO_SIGN_IN_VERSION}`,
+    `Chain ID: ${CHOLO_SIGN_IN_CHAIN_ID}`,
     `Nonce: ${createNonce()}`,
     `Issued At: ${issuedAt.toISOString()}`,
   ].join('\n');
@@ -113,7 +113,7 @@ const normalizeSignInError = (error: unknown, walletLabel: string) => {
 export const requestXverseMainnetStacksAddress = async (): Promise<string> => {
   const response = await satsRequest('wallet_connect', {
     addresses: [AddressPurpose.Stacks],
-    network: BBOX_SIGN_IN_NETWORK,
+    network: CHOLO_SIGN_IN_NETWORK,
   }) as WalletConnectResponse;
 
   if (response.status && response.status !== 'success') {
@@ -167,7 +167,7 @@ export const requestLeatherStacksSignIn = async (
   address: string
 ): Promise<StacksSignInSignature> => {
   assertMainnetStacksAddress(address, 'Leather');
-  const message = buildBboxStacksSignInMessage(address);
+  const message = buildCholoStacksSignInMessage(address);
 
   try {
     const response = await provider.request('stx_signMessage', { message });
@@ -179,7 +179,7 @@ export const requestLeatherStacksSignIn = async (
 
 export const requestXverseStacksSignIn = async (address: string): Promise<StacksSignInSignature> => {
   assertMainnetStacksAddress(address, 'Xverse');
-  const message = buildBboxStacksSignInMessage(address);
+  const message = buildCholoStacksSignInMessage(address);
 
   try {
     const response = await satsRequest('stx_signMessage', { message });
