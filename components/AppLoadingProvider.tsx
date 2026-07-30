@@ -46,8 +46,8 @@ export function AppLoadingProvider({
     try {
       // Load critical assets for app initialization
       const criticalAssets = [
-        '/cholo/cholo-hero.png',
-        '/cholo/gallery-11.png',
+        '/a-cholo.png',
+        '/cholo/cholo-surfer.png',
         '/nft/01.png',
       ];
 

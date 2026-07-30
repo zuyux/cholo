@@ -10,6 +10,7 @@ import GlobalErrorHandler from "@/components/GlobalErrorHandler";
 import { I18nProvider } from "@/components/I18nProvider";
 import { messages } from "@/lib/messages";
 import RewardClaimModal from "@/components/RewardClaimModal";
+import { EncryptedWalletProvider } from "@/components/EncryptedWalletProvider";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -33,6 +34,14 @@ const chakraPetch = Chakra_Petch({
 export const metadata: Metadata = {
   title: "$CHOLO - PRIMERA MEMECOIN DE LATAM EN BITCOIN",
   description: "$CHOLO es un token fungible en Stacks (7,000,000,000 unidades), inspirado en el perro peruano sin pelo, símbolo memético y patrimonio nacional. Financia DeSci, I+D y proyectos comunitarios open source.",
+  applicationName: '$CHOLO',
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/android-chrome-192x192.png', type: 'image/png', sizes: '192x192' },
+    ],
+    apple: [{ url: '/apple-touch-icon.png', type: 'image/png', sizes: '180x180' }],
+  },
   keywords: "$CHOLO, Stacks, memecoin, DeSci, token, blockchain, comunidad, open source, Perú, perro peruano",
   authors: [{ name: "$CHOLO Team" }],
   creator: "$CHOLO",
@@ -80,16 +89,18 @@ export default function RootLayout({
         <GlobalErrorHandler />
         <I18nProvider locale="es" messages={messages.es}>
           <WalletProvider>
-            <Providers>
-              <AppLoadingProvider>
-                <Navbar />
-                <GetInButton />
-                <main>
-                  {children}
-                </main>
-              </AppLoadingProvider>
-              <RewardClaimModal />
-            </Providers>
+            <EncryptedWalletProvider>
+              <Providers>
+                <AppLoadingProvider>
+                  <Navbar />
+                  <GetInButton />
+                  <main>
+                    {children}
+                  </main>
+                </AppLoadingProvider>
+                <RewardClaimModal />
+              </Providers>
+            </EncryptedWalletProvider>
           </WalletProvider>
           <Toaster />
         </I18nProvider>

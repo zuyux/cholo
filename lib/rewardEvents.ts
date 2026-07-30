@@ -7,7 +7,6 @@ export interface RewardSocialStatus {
 }
 
 export interface RewardClaimStatus {
-  instagram: RewardSocialStatus;
   x: RewardSocialStatus;
   eligible: boolean;
   claimed: boolean;

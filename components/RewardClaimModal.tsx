@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Instagram, LoaderCircle, ShieldCheck, X } from 'lucide-react';
+import { Check, LoaderCircle, ShieldCheck, X } from 'lucide-react';
 import { useCurrentAddress } from '@/hooks/useCurrentAddress';
 import { consumeQueuedWelcomeModalAddress, WELCOME_MODAL_AFTER_SIGN_IN_EVENT } from './WalletProvider';
 import { OPEN_REWARD_CLAIM_EVENT, type RewardClaimStatus } from '@/lib/rewardEvents';
 
-const EMPTY_STATUS: RewardClaimStatus = { instagram: { connected: false, following: false }, x: { connected: false, following: false }, eligible: false, claimed: false };
+const EMPTY_STATUS: RewardClaimStatus = { x: { connected: false, following: false }, eligible: false, claimed: false };
 const SOCIALS = {
-  instagram: { label: 'Instagram', account: '@cholocoin', followUrl: 'https://www.instagram.com/cholocoin' },
   x: { label: 'X', account: '@cholocoinmeme', followUrl: 'https://x.com/cholocoinmeme' },
 } as const;
 
@@ -20,8 +19,6 @@ export default function RewardClaimModal() {
   const [checking, setChecking] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const [followingX, setFollowingX] = useState(false);
-  const [instagramUsername, setInstagramUsername] = useState('');
-  const [savingInstagram, setSavingInstagram] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const loadStatus = useCallback(async (walletAddress: string, verify = false) => {
@@ -31,7 +28,6 @@ export default function RewardClaimModal() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'No se pudo comprobar tus cuentas');
       setStatus(payload);
-      if (payload.instagram?.username) setInstagramUsername(payload.instagram.username);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo comprobar tus cuentas'); }
     finally { setChecking(false); }
   }, []);
@@ -48,6 +44,13 @@ export default function RewardClaimModal() {
     window.addEventListener(OPEN_REWARD_CLAIM_EVENT, show);
     const queuedAddress = consumeQueuedWelcomeModalAddress();
     if (queuedAddress) show(new CustomEvent('queued', { detail: { address: queuedAddress } }));
+    const callbackUrl = new URL(window.location.href);
+    if (callbackUrl.searchParams.get('rewardXConnected') === 'true' && address) {
+      setOpen(true);
+      void loadStatus(address);
+      callbackUrl.searchParams.delete('rewardXConnected');
+      window.history.replaceState({}, '', `${callbackUrl.pathname}${callbackUrl.search}${callbackUrl.hash}`);
+    }
     return () => { window.removeEventListener(WELCOME_MODAL_AFTER_SIGN_IN_EVENT, show); window.removeEventListener(OPEN_REWARD_CLAIM_EVENT, show); };
   }, [address, loadStatus]);
 
@@ -64,28 +67,6 @@ export default function RewardClaimModal() {
     window.location.assign(`/api/rewards/connect/x?address=${encodeURIComponent(address)}&returnTo=${encodeURIComponent(returnTo)}`);
   };
 
-  const saveInstagramUsername = async () => {
-    if (!address) return;
-    const username = instagramUsername.trim().replace(/^@/, '');
-    if (!/^[A-Za-z0-9._]{1,30}$/.test(username)) {
-      setMessage('Ingresa un usuario de Instagram válido.');
-      return;
-    }
-    setSavingInstagram(true); setMessage(null);
-    try {
-      const response = await fetch('/api/rewards/instagram', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address, username }),
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || 'No se pudo guardar el usuario de Instagram');
-      if (payload.instagram && payload.x) setStatus(payload);
-      else setStatus((current) => ({ ...current, instagram: { ...current.instagram, connected: true, username } }));
-      setInstagramUsername(username);
-      setMessage('Usuario de Instagram guardado. Ahora sigue a @cholocoin.');
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo guardar el usuario de Instagram'); }
-    finally { setSavingInstagram(false); }
-  };
-
   const followOnX = async () => {
     if (!address) return;
     setFollowingX(true); setMessage(null);
@@ -97,7 +78,7 @@ export default function RewardClaimModal() {
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'No se pudo seguir la cuenta en X');
-      if (payload.instagram && payload.x) setStatus(payload);
+      if (payload.x) setStatus(payload);
       else await loadStatus(address, true);
       setMessage(payload.pendingFollow
         ? 'X recibió la solicitud. La cuenta es privada y el follow está pendiente de aprobación.'
@@ -128,20 +109,10 @@ export default function RewardClaimModal() {
         <button className="reward-modal-close" onClick={() => setOpen(false)} aria-label="Cerrar"><X size={20} /></button>
         <p className="cholo-kicker">Recompensa de bienvenida</p>
         <h2 id="reward-title">Reclama <span>100 $CHOLOs</span></h2>
-        <p className="reward-modal-lead">Indica tu usuario de Instagram, conecta X y sigue a la manada. Verificaremos los requisitos antes de habilitar la recompensa.</p>
+        <p className="reward-modal-lead">Conecta X y sigue a la manada. Verificaremos el requisito antes de habilitar la recompensa.</p>
         <div className="reward-modal-steps">
-          <article className={status.instagram.following ? 'is-complete' : ''}>
-            <span className="reward-step-number">01</span>
-            <div className="reward-step-icon"><Instagram size={22} /></div>
-            <div className="reward-instagram-entry">
-              <label htmlFor="reward-instagram">Tu usuario de Instagram</label>
-              <div><span>@</span><input id="reward-instagram" value={instagramUsername} onChange={(event) => setInstagramUsername(event.target.value)} placeholder="tu_usuario" autoComplete="off" /></div>
-            </div>
-            <button onClick={saveInstagramUsername} disabled={savingInstagram}>{savingInstagram ? 'Guardando...' : status.instagram.connected ? 'Actualizar' : 'Guardar'}</button>
-            <a className="reward-follow-link" href={SOCIALS.instagram.followUrl} target="_blank" rel="noreferrer">Seguir a @cholocoin</a>
-          </article>
           <article className={status.x.following ? 'is-complete' : ''}>
-            <span className="reward-step-number">02</span>
+            <span className="reward-step-number">01</span>
             <div className="reward-step-icon"><b>𝕏</b></div>
             <div className="reward-step-copy"><strong>X</strong><span>{status.x.username ? `@${status.x.username.replace(/^@/, '')}` : SOCIALS.x.account}</span></div>
             {status.x.following ? <span className="reward-verified"><Check size={16} /> Siguiendo</span> : status.x.connected ? <button onClick={followOnX} disabled={followingX}>{followingX ? 'Siguiendo...' : 'Seguir desde CHOLO'}</button> : <button onClick={connectX}>Autenticar</button>}

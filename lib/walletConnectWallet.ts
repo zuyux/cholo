@@ -50,7 +50,7 @@ const getWalletConnectProvider = async (): Promise<EthereumProvider> => {
           name: 'CHOLO',
           description: 'CHOLO app authentication',
           url: window.location.origin,
-          icons: [`${window.location.origin}/cholo.png`],
+          icons: [`${window.location.origin}/android-chrome-192x192.png`],
         },
       }) as Promise<EthereumProvider>;
     });

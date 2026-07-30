@@ -117,7 +117,7 @@ export const PasswordSigningModal: React.FC<PasswordSigningModalProps> = ({
 
         {/* Error Alert */}
         {error && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 mb-4">
+          <div className="flex items-center gap-2 p-3 rounded-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 mb-4">
             <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0" />
             <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
           </div>

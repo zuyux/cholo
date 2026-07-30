@@ -98,57 +98,57 @@ export async function POST(request: NextRequest) {
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
       to: [toEmail],
-      subject: `Cholo Wallet Recovery Link${testingMode && email !== toEmail ? ` (for ${email})` : ''}`,
+      subject: `Enlace de recuperación de la billetera CHOLO${testingMode && email !== toEmail ? ` (para ${email})` : ''}`,
       html: `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Cholo Wallet Recovery</title>
+          <title>Recuperación de la billetera CHOLO</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">🔐 Cholo Wallet</h1>
-            <p style="color: white; margin: 10px 0 0 0; opacity: 0.9;">Secure Wallet Recovery</p>
+            <h1 style="color: white; margin: 0; font-size: 28px;">🔐 Billetera CHOLO</h1>
+            <p style="color: white; margin: 10px 0 0 0; opacity: 0.9;">Recuperación segura de tu billetera</p>
           </div>
           
           <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
-            <h2 style="color: #2563eb; margin-top: 0;">Your Encrypted Wallet is Ready</h2>
+            <h2 style="color: #2563eb; margin-top: 0;">Tu billetera cifrada está lista</h2>
             
             ${testingMode && email !== toEmail ? `
             <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;">
               <p style="color: #856404; margin: 0; font-size: 14px;">
-                <strong>Testing Mode:</strong> This email was originally intended for ${email} but redirected to the account owner for testing purposes.
+                <strong>Modo de prueba:</strong> Este correo estaba destinado a ${email}, pero fue redirigido al propietario de la cuenta para realizar pruebas.
               </p>
             </div>
             ` : ''}
             
-            <p>Your Cholo wallet has been securely encrypted and is ready for recovery. Click the button below to access your wallet:</p>
+            <p>Tu billetera CHOLO fue cifrada de forma segura y está lista para recuperarse. Haz clic en el botón para acceder a ella:</p>
             
             <div style="text-align: center; margin: 30px 0;">
               <a href="${recoveryLink}" 
                  style="background: #2563eb; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 16px;">
-                🔓 Recover My Wallet
+                🔓 Recuperar mi billetera
               </a>
             </div>
             
             <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;">
-              <h3 style="color: #856404; margin-top: 0; font-size: 16px;">⚠️ Important Security Information:</h3>
+              <h3 style="color: #856404; margin-top: 0; font-size: 16px;">⚠️ Información importante de seguridad:</h3>
               <ul style="color: #856404; margin: 0; padding-left: 20px;">
-                <li>You will need your password to decrypt your wallet</li>
-                <li>Never share this link or your password with anyone</li>
-                <li>Cholo cannot recover your password - keep it safe</li>
-                <li>Save this link securely for future wallet recovery</li>
+                <li>Necesitarás tu contraseña para descifrar la billetera.</li>
+                <li>Nunca compartas este enlace ni tu contraseña.</li>
+                <li>CHOLO no puede recuperar tu contraseña; protégela.</li>
+                <li>Guarda este enlace de forma segura para futuras recuperaciones.</li>
               </ul>
             </div>
             
-            <p style="margin-bottom: 0;">If you didn't request this wallet recovery, please ignore this email.</p>
+            <p style="margin-bottom: 0;">Si no solicitaste recuperar esta billetera, puedes ignorar este correo.</p>
           </div>
           
           <div style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
-            <p>© 2025 Cholo Wallet - Open source software licensed under GNU License</p>
-            <p>This is an automated message, please do not reply to this email.</p>
+            <p>© 2025 Billetera CHOLO - Software de código abierto con licencia GNU</p>
+            <p>Este es un mensaje automático. Por favor, no respondas a este correo.</p>
           </div>
         </body>
         </html>

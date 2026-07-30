@@ -6,10 +6,16 @@ import { LoaderCircle } from 'lucide-react';
 import EmailBackupModal from "@/components/EmailBackupModal";
 import { Mail, CheckCircle } from "lucide-react";
 import CryptoJS from 'crypto-js';
+import { useWallet } from "@/components/WalletProvider";
+import { Settings, User, WalletCards } from "lucide-react";
+
+type NewWallet = { mnemonic: string; stxPrivateKey: string; address: string };
 
 export default function AccountCreatedPage() {
   const router = useRouter();
-  const [wallet, setWallet] = useState<{ mnemonic: string; stxPrivateKey: string; address: string } | null>(null);
+  const { address, walletType } = useWallet();
+  const [wallet, setWallet] = useState<NewWallet | null>(null);
+  const [signedInAddress, setSignedInAddress] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [showEmailBackup, setShowEmailBackup] = useState(false);
@@ -17,15 +23,28 @@ export default function AccountCreatedPage() {
   const [backupPassword, setBackupPassword] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setInitialLoading(true);
-      setTimeout(() => {
-        const data = sessionStorage.getItem("cholo_new_wallet");
-        if (data) setWallet(JSON.parse(data));
-        setInitialLoading(false);
-      }, 600); 
+    const newWalletData = sessionStorage.getItem("cholo_new_wallet");
+    const sessionData = localStorage.getItem("cholo_session");
+
+    try {
+      if (newWalletData) setWallet(JSON.parse(newWalletData) as NewWallet);
+    } catch {
+      sessionStorage.removeItem("cholo_new_wallet");
     }
-  }, []);
+
+    try {
+      const sessionAddress = sessionData
+        ? (JSON.parse(sessionData) as { address?: unknown }).address
+        : null;
+      setSignedInAddress(
+        address || (typeof sessionAddress === "string" ? sessionAddress : null)
+      );
+    } catch {
+      setSignedInAddress(address);
+    }
+
+    setInitialLoading(false);
+  }, [address]);
 
   const handleConfirm = () => {
     if (wallet && typeof window !== "undefined") {
@@ -62,6 +81,42 @@ export default function AccountCreatedPage() {
       <div className="flex flex-col items-center justify-center min-h-[80vh]">
         <div className="flex items-center justify-center w-full mb-4">
           <LoaderCircle className="animate-spin text-primary" size={38} strokeWidth={2.5} />
+        </div>
+      </div>
+    );
+  }
+
+  if (!wallet && signedInAddress) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
+        <div className="bg-[#111] rounded-2xl p-8 max-w-lg w-full border border-[#2a2a2a] shadow-lg">
+          <div className="flex items-center gap-3 mb-6">
+            <Settings size={24} />
+            <h1 className="text-2xl font-bold text-white">Ajustes</h1>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 mb-6">
+            <div className="text-sm text-gray-400 mb-2">Billetera conectada</div>
+            <div className="font-mono text-sm text-white break-all">{signedInAddress}</div>
+            {walletType && <div className="text-xs text-gray-500 mt-2 capitalize">{walletType}</div>}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Button
+              onClick={() => router.push('/wallet')}
+              className="h-12 bg-white/10 hover:bg-white/15 text-white"
+            >
+              <WalletCards className="mr-2" size={18} />
+              Billetera
+            </Button>
+            <Button
+              onClick={() => router.push(`/${signedInAddress}`)}
+              className="h-12 bg-white/10 hover:bg-white/15 text-white"
+            >
+              <User className="mr-2" size={18} />
+              Perfil
+            </Button>
+          </div>
         </div>
       </div>
     );

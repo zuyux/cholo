@@ -4,6 +4,7 @@ import { getPersistedNetwork, type Network } from './network';
 const CONTRACTS = {
   mainnet: {
     SBTC_TOKEN: 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token',
+    CHOLO_TOKEN: 'SP193GXQTNHVV9WSAPHAB89M6R9QSEXZKS3774CMD.cholo',
   },
   testnet: {
     SBTC_TOKEN: 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sbtc-token',
@@ -12,6 +13,13 @@ const CONTRACTS = {
     SBTC_TOKEN: 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sbtc-token', // Use testnet for devnet
   },
 };
+
+export const CHOLO_ASSET_NAME = 'cholo';
+export const CHOLO_DECIMALS = 8;
+
+export function getCholoAssetString(): string {
+  return `${CONTRACTS.mainnet.CHOLO_TOKEN}::${CHOLO_ASSET_NAME}`;
+}
 
 const DEFAULT_SBTC_ASSET_NAME = process.env.NEXT_PUBLIC_SBTC_ASSET_NAME?.trim() || 'sbtc';
 

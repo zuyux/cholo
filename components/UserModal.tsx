@@ -9,20 +9,39 @@ import { useWallet } from './WalletProvider';
 import { useRouter } from 'next/navigation';
 import Image from "next/image";
 import { LoaderCircle } from "lucide-react";
-import { getPersistedNetwork } from '@/lib/network';
+import { getPersistedNetwork, inferNetworkFromAddress } from '@/lib/network';
 import { getApiUrl } from '@/lib/stacks-api';
 import { getProfile, Profile } from '@/lib/profileApi';
 import { getIPFSUrl } from '@/lib/pinataUpload';
 import SafariOptimizedImage from './SafariOptimizedImage';
-import { getSBTCContract } from '@/lib/contracts';
+import { CHOLO_DECIMALS, getCholoAssetString } from '@/lib/contracts';
 
 interface UserModalProps {
   onClose: () => void;
 }
 
+function formatTokenUnits(rawBalance: string, decimals: number): string {
+  try {
+    const value = BigInt(rawBalance);
+    if (decimals <= 0) return value.toLocaleString('en-US');
+
+    const divisor = BigInt(10) ** BigInt(decimals);
+    const whole = value / divisor;
+    const fraction = (value % divisor)
+      .toString()
+      .padStart(decimals, '0')
+      .replace(/0+$/, '')
+      .slice(0, 4);
+
+    return `${whole.toLocaleString('en-US')}${fraction ? `.${fraction}` : ''}`;
+  } catch {
+    return '0';
+  }
+}
+
 export default function UserModal({ onClose }: UserModalProps) {
   const { address, setAddress, setWalletType } = useWallet();
-  const [sbtcBalance, setSbtcBalance] = useState<string | null>(null);
+  const [choloBalance, setCholoBalance] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [usernameLoader, setUsernameLoader] = useState<boolean>(false);
   const router = useRouter();
@@ -52,52 +71,31 @@ export default function UserModal({ onClose }: UserModalProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  // Fetch SBTC token balance from Hiro API
+  // Fetch the balance of the CHOLO SIP-010 asset defined by the token contract.
   useEffect(() => {
     if (!currentAddress) {
-      setSbtcBalance(null);
+      setCholoBalance(null);
       return;
     }
     
-    const network = getPersistedNetwork();
+    const network = inferNetworkFromAddress(currentAddress) ?? getPersistedNetwork();
     const baseApiUrl = getApiUrl(network);
     const apiUrl = `${baseApiUrl}/extended/v1/address/${currentAddress}/balances?unanchored=false`;
     
     const fetchBalance = async () => {
       try {
         const res = await fetch(apiUrl, { method: "GET" });
+        if (!res.ok) throw new Error(`Balances request failed with ${res.status}`);
         const data = await res.json();
-        
-        // Look for SBTC token in fungible_tokens
-        let sbtcTokenBalance = '0';
-        
-        // The network-aware sBTC token identifier
-        const sbtcTokenKey = getSBTCContract();
-        
-        if (data.fungible_tokens && data.fungible_tokens[sbtcTokenKey]) {
-          const balance = data.fungible_tokens[sbtcTokenKey].balance;
-          // Show raw balance as Satoshis (no division by 1e8)
-          sbtcTokenBalance = Number(balance).toLocaleString();
-        } else {
-          // Try to find any token that might be sBTC
-          const allTokenKeys = Object.keys(data.fungible_tokens || {});
-          const sbtcKey = allTokenKeys.find(key => 
-            key.toLowerCase().includes('sbtc') || 
-            key.includes('ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRC9VERC') ||
-            key.includes('SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4')
-          );
-          
-          if (sbtcKey) {
-            const balance = data.fungible_tokens[sbtcKey].balance;
-            sbtcTokenBalance = Number(balance).toLocaleString();
-          } else {
-            // No sBTC token found; fall through with zero balance
-          }
-        }
-        setSbtcBalance(sbtcTokenBalance);
+        const token = data?.fungible_tokens?.[getCholoAssetString()];
+        const rawBalance = typeof token?.balance === 'string' ? token.balance : '0';
+        const decimals = typeof token?.token?.decimals === 'number'
+          ? token.token.decimals
+          : CHOLO_DECIMALS;
+        setCholoBalance(formatTokenUnits(rawBalance, decimals));
       } catch (error) {
-        console.error('Failed to fetch SBTC balance:', error);
-        setSbtcBalance('--');
+        console.error('Failed to fetch CHOLO balance:', error);
+        setCholoBalance('--');
       }
     };
     fetchBalance();
@@ -209,7 +207,7 @@ export default function UserModal({ onClose }: UserModalProps) {
         <div className="flex items-center w-full mb-6">
           <Link
             href={currentAddress ? `/${currentAddress}` : '/'}
-            className="title ml-2 text-left text-gray-900 dark:text-white text-xl font-bold tracking-wider flex-1 cursor-pointer select-none"
+            className="title ml-2 text-left text-gray-900 dark:text-white text-sm font-bold tracking-wider flex-1 cursor-pointer select-none"
             onClick={onClose}
           >
             {usernameLoader ? (
@@ -249,18 +247,18 @@ export default function UserModal({ onClose }: UserModalProps) {
             </button>
           </div>
         </div>
-        <div className="w-full mb-4">
+        <div className="w-full mb-0.5">
           <div className="flex items-center justify-between bg-white/5 backdrop-blur-sm rounded-xl px-6 py-4 mb-2 border border-white/10">
             <button
               onClick={() => { onClose(); router.push('/wallet'); }}
-              className="title text-2xl font-bold text-left text-gray-900 dark:text-white hover:underline cursor-pointer select-none"
+              className="title text-md font-bold text-left text-gray-900 dark:text-white hover:underline cursor-pointer select-none"
               style={{ background: "none", border: "none", padding: 0, margin: 0 }}
             >
-              {sbtcBalance === null ? (
+              {choloBalance === null ? (
                 <LoaderCircle className="animate-spin text-black dark:text-white inline-block align-middle" size={32} />
               ) : (
                 <>
-                  {formatBalance(sbtcBalance)} <span className="text-lg"><LocalizedText>SATS</LocalizedText></span>
+                  {formatBalance(choloBalance)} <span className="text-md">$CHOLO</span>
                 </>
               )}
             </button>
@@ -273,7 +271,7 @@ export default function UserModal({ onClose }: UserModalProps) {
             </LocalizedText></button>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3 w-full mb-2 font-sans text-base">
+        <div className="grid grid-cols-2 gap-2 w-full mb-2 font-sans text-base">
           <button
             onClick={() => { onClose(); router.push('/account'); }}
             className="flex flex-col items-center justify-center bg-white/5 backdrop-blur-sm rounded-xl py-4 text-sm text-gray-900 dark:text-white hover:bg-white/7 border border-white/10 cursor-pointer select-none"

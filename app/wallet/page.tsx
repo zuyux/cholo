@@ -92,14 +92,6 @@ const SEND_ASSETS: Array<{
   },
 ];
 
-const FEATURED_TOKEN_CONTRACTS = new Set([
-  'SP193GXQTNHVV9WSAPHAB89M6R9QSEXZKS3774CMD::cholo',
-]);
-
-const FEATURED_TOKEN_SYMBOLS = new Set([
-  'cholo',
-]);
-
 const formatQuickFillAmount = (value: number) => {
   if (!Number.isFinite(value) || value <= 0) {
     return '';
@@ -364,7 +356,7 @@ declare global {
 
 import { getApiUrl } from "@/lib/stacks-api";
 import { getPersistedNetwork, inferNetworkFromAddress, persistNetwork, type Network } from "@/lib/network";
-import { getSBTCContract } from "@/lib/contracts";
+import { CHOLO_DECIMALS, getCholoAssetString, getSBTCContract } from "@/lib/contracts";
 import { getWalletErrorMessage, isWalletRequestCancelled } from '@/lib/walletErrors';
 import { sendSbtcDonation, sendSbtcDonationWithKey } from "@/lib/cholo-contract";
 
@@ -373,6 +365,25 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
+
+const CHOLO_ASSET_ID = getCholoAssetString().toLowerCase();
+const FEATURED_TOKEN_CONTRACTS = new Set([CHOLO_ASSET_ID]);
+
+const formatCholoBalance = (rawBalance: string) => {
+  try {
+    const value = BigInt(rawBalance);
+    const divisor = BigInt(10) ** BigInt(CHOLO_DECIMALS);
+    const whole = value / divisor;
+    const fraction = (value % divisor)
+      .toString()
+      .padStart(CHOLO_DECIMALS, '0')
+      .replace(/0+$/, '')
+      .slice(0, 4);
+    return `${whole.toLocaleString('en-US')}${fraction ? `.${fraction}` : ''}`;
+  } catch {
+    return '0';
+  }
+};
 import { fetchRecentTransactions } from "@/lib/fetchRecentTransactions";
 import Image from "next/image";
 import { getProfile } from "@/lib/profileApi";
@@ -572,7 +583,7 @@ export default function WalletPage() {
   const stxAsset = assets.find((asset) => asset.id === 'stx' || asset.symbol === 'STX');
   const choloAsset = assets.find((asset) => {
     const assetId = asset.id.toLowerCase();
-    return asset.symbol.toLowerCase() === 'cholo' || FEATURED_TOKEN_CONTRACTS.has(assetId);
+    return FEATURED_TOKEN_CONTRACTS.has(assetId);
   });
   const stxBalanceDisplay = formatStacksAssetCardBalance(stxAsset?.formattedBalance);
   const choloBalanceDisplay = choloAsset?.formattedBalance ?? '0.00';
@@ -584,12 +595,12 @@ export default function WalletPage() {
     ? lightningBalance.display
     : isBitcoinOnlyAccount
       ? btcBalance.display
-    : sbtcBalance;
+      : choloBalanceDisplay;
   const primaryBalanceLoading = isNostrLightningAccount
     ? lightningBalance.status === 'loading'
     : isBitcoinOnlyAccount
       ? btcBalanceLoading
-      : loading;
+      : assetsLoading;
   const primaryBalanceUnavailable = !primaryBalanceLoading && (
     isNostrLightningAccount
       ? lightningBalance.status === 'unavailable'
@@ -604,7 +615,7 @@ export default function WalletPage() {
       : 'Nostr account'
     : isBitcoinOnlyAccount
       ? 'Bitcoin balance'
-    : 'Satoshis';
+      : '$CHOLO';
 
   const resetSendForm = () => {
     setSendTo("");
@@ -1086,11 +1097,14 @@ export default function WalletPage() {
         const tokens = (data?.fungible_tokens || {}) as Record<string, FungibleTokenData>;
 
         Object.entries(tokens).forEach(([key, tokenData]) => {
-          const decimals = typeof tokenData?.token?.decimals === 'number' ? tokenData.token.decimals : 0;
+          const lowerKey = key.toLowerCase();
+          const isCholoToken = lowerKey === CHOLO_ASSET_ID;
+          const decimals = isCholoToken
+            ? CHOLO_DECIMALS
+            : typeof tokenData?.token?.decimals === 'number' ? tokenData.token.decimals : 0;
           const rawBalance = tokenData?.balance ?? '0';
           const symbol = tokenData?.token?.symbol || key.split('::').pop() || 'FT';
           const name = tokenData?.token?.name || symbol;
-          const lowerKey = key.toLowerCase();
           const lowerSymbol = symbol.toLowerCase();
           const lowerName = name.toLowerCase();
           const isSbtcToken = Boolean(
@@ -1107,7 +1121,9 @@ export default function WalletPage() {
             id: key,
             name,
             symbol: symbol.toUpperCase(),
-            formattedBalance: formatTokenBalance(rawBalance, decimals),
+            formattedBalance: isCholoToken
+              ? formatCholoBalance(rawBalance)
+              : formatTokenBalance(rawBalance, decimals),
             rawBalance,
             type: 'fungible',
           });
@@ -1123,8 +1139,7 @@ export default function WalletPage() {
         const featuredAssets = parsedAssets.filter((asset) => {
           if (asset.symbol === 'STX') return true;
           const assetId = typeof asset.id === 'string' ? asset.id.toLowerCase() : '';
-          const assetSymbol = typeof asset.symbol === 'string' ? asset.symbol.toLowerCase() : '';
-          return FEATURED_TOKEN_CONTRACTS.has(assetId) || FEATURED_TOKEN_SYMBOLS.has(assetSymbol);
+          return FEATURED_TOKEN_CONTRACTS.has(assetId);
         });
 
         setAssets(featuredAssets);
@@ -1542,32 +1557,35 @@ export default function WalletPage() {
         </LocalizedText></button>
       ) : isBitcoinOnlyAccount ? (
         <button
-          className="mb-4 w-full bg-transparent border border-border text-foreground px-6 py-2.5 rounded-xl hover:bg-muted cursor-pointer select-none transition-all duration-200"
+          className="mb-4 flex w-full items-center justify-center gap-2 bg-transparent border border-border text-foreground px-6 py-2.5 rounded-xl hover:bg-muted cursor-pointer select-none transition-all duration-200"
           onClick={() => setShowReceive(true)}
         >
-          <LocalizedText>Receive
-        </LocalizedText></button>
+          <Image className="invert dark:invert-0" src="/receive.svg" alt="" width={18} height={18} aria-hidden="true" />
+          <span><LocalizedText>Receive</LocalizedText></span>
+        </button>
       ) : (
         <div className="mb-4 grid grid-cols-2 gap-3">
           <button
-            className="border border-border bg-transparent text-foreground w-full px-6 py-3 rounded-xl hover:bg-muted cursor-pointer select-none transition-all duration-200"
+            className="flex items-center justify-center gap-2 border border-border bg-transparent text-foreground w-full px-6 py-3 rounded-xl hover:bg-muted cursor-pointer select-none transition-all duration-200"
             onClick={() => setShowSend(true)}
           >
-            <LocalizedText>Send
-          </LocalizedText></button>
+            <Image className="invert dark:invert-0" src="/send.svg" alt="" width={18} height={18} aria-hidden="true" />
+            <span><LocalizedText>Send</LocalizedText></span>
+          </button>
           <button
-            className="border border-border bg-transparent text-foreground px-6 py-3 rounded-xl hover:bg-muted cursor-pointer select-none transition-all duration-200"
+            className="flex items-center justify-center gap-2 border border-border bg-transparent text-foreground px-6 py-3 rounded-xl hover:bg-muted cursor-pointer select-none transition-all duration-200"
             onClick={() => setShowReceive(true)}
           >
-            <LocalizedText>Receive
-          </LocalizedText></button>
+            <Image className="invert dark:invert-0" src="/receive.svg" alt="" width={18} height={18} aria-hidden="true" />
+            <span><LocalizedText>Receive</LocalizedText></span>
+          </button>
         </div>
       )}
 
       {!isNostrLightningAccount && !isBitcoinOnlyAccount && (
         <button
           type="button"
-          className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-transparent px-6 py-2.5 text-foreground transition-all duration-200 hover:bg-muted"
+          className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-transparent px-6 py-2.5 text-foreground transition-all duration-200 hover:bg-muted cursor-pointer"
           onClick={() => setShowSwap(true)}
         >
           <Image src="/swap.svg" alt="" width={18} height={18} aria-hidden="true" />
@@ -1632,8 +1650,8 @@ export default function WalletPage() {
               )}
             </div>
           ) : (
-          <div className="space-y-2 p-3">
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-transparent p-3">
+          <div className="flex flex-col gap-2 p-3">
+            <div className={`flex items-center justify-between gap-3 rounded-xl border border-border bg-transparent p-3 ${isBitcoinOnlyAccount ? 'order-1' : 'order-3'}`}>
               <div className="flex items-center gap-3">
                 <Image src="/btc.svg" alt="Bitcoin" width={28} height={28} />
                 <div>
@@ -1651,7 +1669,7 @@ export default function WalletPage() {
 
             {!isBitcoinOnlyAccount && (
             <>
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-transparent p-3">
+            <div className="order-2 flex items-center justify-between gap-3 rounded-xl border border-border bg-transparent p-3">
               <div className="flex items-center gap-3">
                 <Image src="/stx.png" alt="Stacks" width={28} height={28} />
                 <div>
@@ -1667,12 +1685,13 @@ export default function WalletPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-transparent p-3">
+            <div className="order-1 flex items-center justify-between gap-3 rounded-xl border border-border bg-transparent p-3">
+
               <div className="flex items-center gap-3">
-                <Image className="rounded-full object-cover" src="/cholo/cholo-hero.png" alt="CHOLO" width={28} height={28} />
+                <Image className="rounded-full object-cover" src="/a-cholo.png" alt="CHOLO" width={28} height={28} />
                 <div>
                   <div className="text-sm font-semibold">Cholo</div>
-                  <div className="text-xs text-muted-foreground">CHOLO</div>
+                  <div className="text-xs text-muted-foreground">$CHOLO</div>
                 </div>
               </div>
               <div className="text-right">

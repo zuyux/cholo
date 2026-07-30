@@ -103,19 +103,19 @@ export async function sendEmail(options: EmailOptions) {
 // Email templates
 export const emailTemplates = {
   waitlistWelcome: (email: string) => ({
-    subject: "Welcome to the CHOLO Waitlist!",
+    subject: "¡Bienvenido a la lista de espera de CHOLO!",
     html: `
       <div style="background:#000;padding:32px 24px;color:#fff;font-family:'Jersey 10',cursive;">
       <div style="background:#000;padding:32px 24px;border-radius:16px;text-align:center;max-width:480px;margin:auto;">
-        <h1 style="color:#ff8a00;font-size:2rem;font-weight:700;margin-bottom:12px;letter-spacing:1px;">Welcome to the CHOLO Waitlist!</h1>
-        <p style="font-size:1.1rem;margin-bottom:18px;">Hey <b>${email}</b>,</p>
-        <p style="font-size:1rem;margin-bottom:18px;">We're excited to have you join the registry for verified open-source software and digital sovereignty.<br />
-        You'll be the first to know about exclusive features, updates, and early access opportunities.</p>
+        <h1 style="color:#ff8a00;font-size:2rem;font-weight:700;margin-bottom:12px;letter-spacing:1px;">¡Bienvenido a la lista de espera de CHOLO!</h1>
+        <p style="font-size:1.1rem;margin-bottom:18px;">Hola <b>${email}</b>,</p>
+        <p style="font-size:1rem;margin-bottom:18px;">Nos alegra que te unas al registro de software de código abierto verificado y soberanía digital.<br />
+        Serás de los primeros en conocer funciones exclusivas, novedades y oportunidades de acceso anticipado.</p>
         <div style="margin:24px 0;">
-          <a href="https://cholo.app" style="display:inline-block;padding:12px 32px;background:#ff006a;color:#fff;border-radius:8px;font-weight:600;text-decoration:none;font-size:1.1rem;box-shadow:0 2px 8px #0002;">Visit CHOLO</a>
+          <a href="https://cholo.app" style="display:inline-block;padding:12px 32px;background:#ff006a;color:#fff;border-radius:8px;font-weight:600;text-decoration:none;font-size:1.1rem;box-shadow:0 2px 8px #0002;">Visitar CHOLO</a>
         </div>
         <hr style="border:none;border-top:1px solid #333;margin:32px 0;" />
-        <p style="color:#898989;font-size:13px;">CHOLO &mdash; The Universal Registry for Verified Software</p>
+        <p style="color:#898989;font-size:13px;">CHOLO &mdash; el perro que nunca obdc</p>
       </div>
       </div>
     `
@@ -127,44 +127,44 @@ export const emailTemplates = {
     removeUrl: string;
     expiresInHours: number;
   }) => ({
-    subject: "CHOLO Account Created Successfully",
+    subject: "Tu cuenta CHOLO fue creada correctamente",
     html: `
       <div style="background:#000;padding:32px 24px;color:#fff;font-family:'Jersey 10',cursive;">
       <div style="background:#000;padding:32px 24px;border-radius:16px;max-width:600px;margin:auto;">
-        <h2 style="color:#ff8a00;margin-bottom:20px;">Welcome to CHOLO — we're glad you're here!</h2>
-        <p>Your account has been created successfully. You are now part of a growing community helping make trustworthy open-source software easier to discover, support, and preserve.</p>
+        <h2 style="color:#ff8a00;margin-bottom:20px;">¡Bienvenido a CHOLO! Nos alegra tenerte aquí.</h2>
+        <p>Tu cuenta fue creada correctamente. Ahora formas parte de una comunidad que ayuda a descubrir, apoyar y preservar software de código abierto confiable.</p>
 
         <div style="margin:28px 0;padding:24px;border:1px solid #2f2f33;border-radius:12px;background:#000;">
-          <h3 style="margin-top:0;color:#ff8a00;">What is CHOLO?</h3>
-          <p style="margin:8px 0;color:#e5e5e5;"><strong>CHOLO is short for Bitcoin Box</strong> — an open home for high-integrity software and the people who build it.</p>
-          <p style="margin:12px 0 0;color:#e5e5e5;">CHOLO is a Bitcoin-anchored registry and funding layer where anyone can discover verified open-source apps, review transparent project information, support public goods, and follow the work behind each project. Builders keep control of their records while Bitcoin provides a durable, auditable foundation.</p>
+          <h3 style="margin-top:0;color:#ff8a00;">¿Qué es CHOLO?</h3>
+          <p style="margin:8px 0;color:#e5e5e5;"><strong>CHOLO significa Bitcoin Box</strong>: un espacio abierto para software íntegro y las personas que lo crean.</p>
+          <p style="margin:12px 0 0;color:#e5e5e5;">CHOLO es un registro y una capa de financiamiento anclados en Bitcoin. Aquí cualquiera puede descubrir aplicaciones de código abierto verificadas, revisar información transparente, apoyar bienes públicos y seguir el trabajo de cada proyecto. Los creadores conservan el control de sus registros mientras Bitcoin aporta una base duradera y auditable.</p>
         </div>
 
-        <p><strong>Bitcoin Address:</strong> <code style="background:#000;border:1px solid #333;padding:4px 8px;border-radius:4px;color:#fff;">${bitcoinAddress}</code></p>
+        <p><strong>Dirección de Bitcoin:</strong> <code style="background:#000;border:1px solid #333;padding:4px 8px;border-radius:4px;color:#fff;">${bitcoinAddress}</code></p>
 
         <div style="margin:28px 0;padding:24px;border:1px solid #2f2f33;border-radius:12px;background:#000;">
-          <h3 style="margin-top:0;color:#ff8a00;">Verify your email</h3>
-          <p style="margin:8px 0 18px;color:#e5e5e5;">Click below to confirm this email belongs to you. Verification is optional, but it helps us keep your account safer.</p>
+          <h3 style="margin-top:0;color:#ff8a00;">Verifica tu correo electrónico</h3>
+          <p style="margin:8px 0 18px;color:#e5e5e5;">Haz clic abajo para confirmar que este correo te pertenece. La verificación es opcional, pero ayuda a proteger tu cuenta.</p>
           <div style="text-align:center;margin-bottom:18px;">
-            <a href="${verifyUrl}" style="display:inline-block;padding:12px 26px;background:#00c2ff;color:#050505;border-radius:8px;font-weight:600;text-decoration:none;">Verify Email</a>
+            <a href="${verifyUrl}" style="display:inline-block;padding:12px 26px;background:#00c2ff;color:#050505;border-radius:8px;font-weight:600;text-decoration:none;">Verificar correo</a>
           </div>
-          <p style="margin:0;font-size:13px;color:#9ca3af;">If you don't verify but also don't remove this email within ${expiresInHours} hours, we'll automatically treat it as verified.</p>
+          <p style="margin:0;font-size:13px;color:#9ca3af;">Si no verificas ni eliminas este correo dentro de ${expiresInHours} horas, lo consideraremos verificado automáticamente.</p>
         </div>
 
         <div style="margin:28px 0;padding:24px;border:1px solid #2f2f33;border-radius:12px;background:#000;">
-          <h3 style="margin-top:0;color:#ff8a00;">Didn't create this wallet?</h3>
-          <p style="margin:8px 0 18px;color:#f5d0d0;">Use the link below within ${expiresInHours} hours to remove your email from this wallet so you can register it elsewhere.</p>
+          <h3 style="margin-top:0;color:#ff8a00;">¿No creaste esta billetera?</h3>
+          <p style="margin:8px 0 18px;color:#f5d0d0;">Usa el enlace dentro de ${expiresInHours} horas para quitar tu correo de esta billetera y poder registrarlo en otra.</p>
           <div style="text-align:center;margin-bottom:8px;">
-            <a href="${removeUrl}" style="display:inline-block;padding:12px 26px;background:#ff3b3b;color:#050505;border-radius:8px;font-weight:600;text-decoration:none;">Remove My Email</a>
+            <a href="${removeUrl}" style="display:inline-block;padding:12px 26px;background:#ff3b3b;color:#050505;border-radius:8px;font-weight:600;text-decoration:none;">Quitar mi correo</a>
           </div>
-          <p style="margin:0;font-size:13px;color:#f5d0d0;">After the ${expiresInHours}-hour window, the email is locked to this wallet unless you contact support.</p>
+          <p style="margin:0;font-size:13px;color:#f5d0d0;">Después de ${expiresInHours} horas, el correo quedará vinculado a esta billetera salvo que contactes a soporte.</p>
         </div>
 
         <div style="background:#000;border:1px solid #2f2f33;padding:16px;border-radius:8px;margin:20px 0;">
-          <p style="margin:0;color:#ff8a00;"><strong>⚠️ Important Security Notice:</strong></p>
-          <p style="margin:8px 0 0 0;">Keep your mnemonic/seed phrase safe. Never share it with anyone. This is the only way to recover your wallet.</p>
+          <p style="margin:0;color:#ff8a00;"><strong>⚠️ Aviso importante de seguridad:</strong></p>
+          <p style="margin:8px 0 0 0;">Protege tu frase mnemónica o semilla. Nunca la compartas con nadie. Es la única forma de recuperar tu billetera.</p>
         </div>
-        <p style="color:#898989;font-size:13px;">CHOLO &mdash; The Universal Registry for Verified Software</p>
+        <p style="color:#898989;font-size:13px;">CHOLO &mdash; el perro que nunca obdc</p>
       </div>
       </div>
     `
@@ -173,25 +173,25 @@ export const emailTemplates = {
   verifiedAccountCreated: ({ bitcoinAddress }: {
     bitcoinAddress: string;
   }) => ({
-    subject: "CHOLO Account Created Successfully",
+    subject: "Tu cuenta CHOLO fue creada correctamente",
     html: `
       <div style="background:#000;padding:32px 24px;color:#fff;font-family:Arial,sans-serif;">
       <div style="background:#000;padding:32px 24px;border-radius:16px;max-width:600px;margin:auto;">
-        <h2 style="color:#ff8a00;margin-bottom:20px;">Welcome to CHOLO — we're glad you're here!</h2>
-        <p>Your email has been verified and your account is ready. You are now part of a growing community helping make trustworthy open-source software easier to discover, support, and preserve.</p>
+        <h2 style="color:#ff8a00;margin-bottom:20px;">¡Bienvenido a CHOLO! Nos alegra tenerte aquí.</h2>
+        <p>Tu correo fue verificado y tu cuenta está lista. Ahora formas parte de una comunidad que ayuda a descubrir, apoyar y preservar software de código abierto confiable.</p>
 
         <div style="margin:28px 0;padding:24px;border:1px solid #2f2f33;border-radius:12px;background:#000;">
-          <h3 style="margin-top:0;color:#ff8a00;">What is CHOLO?</h3>
-          <p style="margin:8px 0;color:#e5e5e5;"><strong>CHOLO is short for Bitcoin Box</strong> — an open home for high-integrity software and the people who build it.</p>
-          <p style="margin:12px 0 0;color:#e5e5e5;">CHOLO is a Bitcoin-anchored registry and funding layer where anyone can discover verified open-source apps, review transparent project information, support public goods, and follow the work behind each project. Builders keep control of their records while Bitcoin provides a durable, auditable foundation.</p>
+          <h3 style="margin-top:0;color:#ff8a00;">¿Qué es CHOLO?</h3>
+          <p style="margin:8px 0;color:#e5e5e5;"><strong>CHOLO significa Bitcoin Box</strong>: un espacio abierto para software íntegro y las personas que lo crean.</p>
+          <p style="margin:12px 0 0;color:#e5e5e5;">CHOLO es un registro y una capa de financiamiento anclados en Bitcoin para descubrir aplicaciones verificadas, revisar información transparente y apoyar bienes públicos. Los creadores conservan el control de sus registros mientras Bitcoin aporta una base duradera y auditable.</p>
         </div>
 
-        <p><strong>Bitcoin Address:</strong> <code style="background:#000;border:1px solid #333;padding:4px 8px;border-radius:4px;color:#fff;">${bitcoinAddress}</code></p>
+        <p><strong>Dirección de Bitcoin:</strong> <code style="background:#000;border:1px solid #333;padding:4px 8px;border-radius:4px;color:#fff;">${bitcoinAddress}</code></p>
         <div style="background:#000;border:1px solid #2f2f33;padding:16px;border-radius:8px;margin:20px 0;">
-          <p style="margin:0;color:#ff8a00;"><strong>Important Security Notice:</strong></p>
-          <p style="margin:8px 0 0 0;">Keep your mnemonic/seed phrase safe. Never share it with anyone. This is the only way to recover your wallet.</p>
+          <p style="margin:0;color:#ff8a00;"><strong>Aviso importante de seguridad:</strong></p>
+          <p style="margin:8px 0 0 0;">Protege tu frase mnemónica o semilla. Nunca la compartas con nadie. Es la única forma de recuperar tu billetera.</p>
         </div>
-        <p style="color:#898989;font-size:13px;">CHOLO &mdash; The Universal Registry for Verified Software</p>
+        <p style="color:#898989;font-size:13px;">CHOLO &mdash; el perro que nunca obdc</p>
       </div>
       </div>
     `
@@ -201,66 +201,66 @@ export const emailTemplates = {
     code: string;
     expiresInMinutes: number;
   }) => ({
-    subject: "Your CHOLO verification code",
+    subject: "Tu código de verificación de CHOLO",
     html: `
       <div style="background:#000;padding:32px 24px;color:#fff;font-family:Arial,sans-serif;">
       <div style="background:#000;padding:32px 24px;border-radius:16px;max-width:520px;margin:auto;">
-        <h2 style="color:#ff8a00;margin:0 0 18px;">Verify your email</h2>
-        <p style="margin:0 0 18px;color:#e5e5e5;">Enter this code to continue creating your CHOLO wallet.</p>
+        <h2 style="color:#ff8a00;margin:0 0 18px;">Verifica tu correo electrónico</h2>
+        <p style="margin:0 0 18px;color:#e5e5e5;">Ingresa este código para continuar creando tu billetera CHOLO.</p>
         <div style="letter-spacing:8px;font-size:32px;font-weight:700;text-align:center;background:#000;border:1px solid #2f2f33;border-radius:12px;padding:22px;margin:24px 0;color:#fff;">
           ${code}
         </div>
-        <p style="margin:0 0 14px;color:#9ca3af;font-size:14px;">This code expires in ${expiresInMinutes} minutes.</p>
-        <p style="margin:0;color:#9ca3af;font-size:14px;">If you did not request this, you can ignore this email.</p>
-        <p style="color:#898989;font-size:12px;margin-top:28px;">CHOLO &mdash; The Universal Registry for Verified Software</p>
+        <p style="margin:0 0 14px;color:#9ca3af;font-size:14px;">Este código vence en ${expiresInMinutes} minutos.</p>
+        <p style="margin:0;color:#9ca3af;font-size:14px;">Si no solicitaste este código, puedes ignorar este correo.</p>
+        <p style="color:#898989;font-size:12px;margin-top:28px;">CHOLO &mdash; el perro que nunca obdc</p>
       </div>
       </div>
     `
   }),
 
   walletConnectionLink: (connectionUrl: string) => ({
-    subject: "🔐 Account Connection Link - CHOLO",
+    subject: "🔐 Enlace para conectar tu cuenta - CHOLO",
     html: `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Account Connection</title>
+        <title>Conexión de cuenta</title>
       </head>
       <body style="background:#000;font-family:Arial,sans-serif;line-height:1.6;color:#fff;margin:0;padding:20px;">
         <div style="background:#000;max-width:600px;margin:0 auto;">
         <div style="background:#000;padding:30px;border:1px solid #2f2f33;border-radius:10px 10px 0 0;text-align:center;">
-          <h1 style="color:#ff8a00;margin:0;font-size:24px;">🔐 Account Connection</h1>
+          <h1 style="color:#ff8a00;margin:0;font-size:24px;">🔐 Conexión de cuenta</h1>
         </div>
         
         <div style="background:#000;padding:30px;border-radius:0 0 10px 10px;border:1px solid #2f2f33;">
-          <h2 style="color:#ff8a00;margin-top:0;">Connect Your Account</h2>
+          <h2 style="color:#ff8a00;margin-top:0;">Conecta tu cuenta</h2>
           
-          <p>Hello!</p>
+          <p>¡Hola!</p>
           
-          <p>You requested to connect your account to CHOLO. Click the button below to complete the connection process:</p>
+          <p>Solicitaste conectar tu cuenta a CHOLO. Haz clic en el botón para completar el proceso:</p>
           
           <div style="text-align: center; margin: 30px 0;">
             <a href="${connectionUrl}" 
                style="display: inline-block; background: #2563eb; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
-              Connect Account
+              Conectar cuenta
             </a>
           </div>
           
           <p style="color:#b3b3b3;font-size:14px;margin-top:30px;">
-            <strong>Important:</strong> This link will expire in 30 minutes for security reasons.
+            <strong>Importante:</strong> Por seguridad, este enlace vencerá en 30 minutos.
           </p>
           
           <p style="color:#b3b3b3;font-size:14px;">
-            If you didn't request this connection, please ignore this email.
+            Si no solicitaste esta conexión, puedes ignorar este correo.
           </p>
           
           <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
           
           <p style="color: #999; font-size: 12px; text-align: center;">
-            This email was sent by CHOLO Platform<br>
-            If you can't click the button, copy and paste this link: ${connectionUrl}
+            Este correo fue enviado por la plataforma CHOLO.<br>
+            Si no puedes hacer clic en el botón, copia y pega este enlace: ${connectionUrl}
           </p>
         </div>
         </div>

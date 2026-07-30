@@ -361,7 +361,7 @@ export async function submitAppToContract(
     postConditions,
     appDetails: {
       name: 'CHOLO',
-      icon: typeof window !== 'undefined' ? `${window.location.origin}/cholo.png` : '',
+      icon: typeof window !== 'undefined' ? `${window.location.origin}/android-chrome-192x192.png` : '',
     },
     onFinish,
     onCancel,
@@ -558,7 +558,7 @@ export async function sendSbtcDonation(options: SendSbtcDonationOptions): Promis
     postConditions: [donationPostCondition],
     appDetails: {
       name: 'CHOLO Funding',
-      icon: typeof window !== 'undefined' ? `${window.location.origin}/cholo.png` : '',
+      icon: typeof window !== 'undefined' ? `${window.location.origin}/android-chrome-192x192.png` : '',
     },
     onFinish: (data) => {
       console.log('Donation submitted:', data);
@@ -862,7 +862,7 @@ async function executeCholoContractCall(options: CholoContractCallOptions): Prom
 
   const fallbackAppDetails = appDetails ?? {
     name: 'CHOLO',
-    icon: typeof window !== 'undefined' ? `${window.location.origin}/cholo.png` : '',
+    icon: typeof window !== 'undefined' ? `${window.location.origin}/android-chrome-192x192.png` : '',
   };
 
   const contractCallOptions = {

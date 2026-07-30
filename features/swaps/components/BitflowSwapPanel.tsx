@@ -123,7 +123,7 @@ export function BitflowSwapPanel({ address, walletType, network, onClose, onComp
       <div className="max-h-[calc(100vh-3rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-[#111] p-6 shadow-xl" onClick={(event) => event.stopPropagation()}>
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold">Intercambiar</h2>
+            <h2 className="text-xl font-semibold">Cambiar</h2>
             <p className="mt-1 text-sm text-muted-foreground">Adquiere un activo de Stacks sin salir de tu billetera.</p>
           </div>
           <button type="button" onClick={onClose} disabled={submitting} aria-label="Cerrar intercambio" className="text-muted-foreground hover:text-foreground disabled:opacity-40"><X /></button>

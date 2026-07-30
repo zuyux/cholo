@@ -6,7 +6,7 @@ export const X_SCOPES = 'tweet.read users.read follows.read follows.write offlin
 export const CHOLO_X_USERNAME = process.env.X_CHOLO_USERNAME || 'cholocoinmeme';
 
 type RewardRow = {
-  address: string; instagram_username: string | null; instagram_connected: boolean;
+  address: string;
   x_user_id: string | null; x_username: string | null; x_access_token: string | null;
   x_refresh_token: string | null; x_token_expires_at: string | null;
   x_connected: boolean; x_following: boolean; claimed: boolean;
@@ -14,9 +14,8 @@ type RewardRow = {
 
 export function toStatus(row: Partial<RewardRow> | null): RewardClaimStatus {
   return {
-    instagram: { connected: !!row?.instagram_connected, following: !!row?.instagram_connected, username: row?.instagram_username || undefined },
     x: { connected: !!row?.x_connected, following: !!row?.x_following, username: row?.x_username || undefined },
-    eligible: !!row?.instagram_connected && !!row?.x_following,
+    eligible: !!row?.x_following,
     claimed: !!row?.claimed,
   };
 }

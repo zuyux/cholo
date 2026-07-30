@@ -333,7 +333,7 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
           </button>
         </div>}
 
-        <div className={`${connectMode === 'wallets' ? 'py-0' : 'px-5'}`}>
+        <div className={connectMode === 'wallets' || embedded ? 'py-0' : 'px-5'}>
           {connectMode === "wallets" && (
             <>
               {(wallets.length === 0 || wallets.every(w => !w.installed && w.id !== 'walletconnect')) && (

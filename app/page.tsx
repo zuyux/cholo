@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
-import { ArrowDown, ArrowUpRight, Check, Copy, Instagram, X } from 'lucide-react';
+import { ArrowDown, ArrowUpRight, Check, Copy, LoaderCircle, X } from 'lucide-react';
 import { motion, useScroll, useSpring, useTransform } from 'framer-motion';
 import { OPEN_AUTH_FLOW_EVENT } from '@/lib/authEvents';
 import { OPEN_REWARD_CLAIM_EVENT } from '@/lib/rewardEvents';
@@ -40,6 +40,29 @@ const choloArchive = [
   ['/cholo/cholo-astral.png', 'Futuro', 'Más allá de la cadena'],
   ['/cholo/cholo-cyber.png', 'Cypherpunk', 'El guardián digital'],
 ] as const;
+
+function GalleryImage({ src, index }: { src: string; index: number }) {
+  const [isLoading, setIsLoading] = useState(true);
+
+  return (
+    <>
+      {isLoading && (
+        <div className="cholo-gallery-loader" aria-hidden="true">
+          <LoaderCircle aria-hidden="true" />
+        </div>
+      )}
+      <Image
+        src={src}
+        alt={`Arte CHOLO ${index + 1}`}
+        fill
+        sizes="(max-width: 680px) 50vw, (max-width: 1100px) 33vw, 25vw"
+        className={isLoading ? 'is-loading' : 'is-loaded'}
+        onLoad={() => setIsLoading(false)}
+        onError={() => setIsLoading(false)}
+      />
+    </>
+  );
+}
 
 function CholoArchiveTimeline() {
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -125,7 +148,7 @@ export default function HomePage() {
       <section className="cholo-hero" id="top">
         <div className="hero-copy-cholo">
           <p className="cholo-kicker">Edición Bitcoin Punk · Costa Norte</p>
-          <h1>el perro que nunca obedece</h1>
+          <h1>el perro que nunca obdc</h1>
           <p className="cholo-deck">
             desde este momento, eres libre e independiente, por la voluntad general de CHOLO
           </p>
@@ -146,7 +169,7 @@ export default function HomePage() {
           <div className="cholo-terminal hero-terminal">
             <div className="cholo-terminal-bar"><span>ARCHIVO_CHOLO / EDICIÓN_01</span><span>□ □ ×</span></div>
             <div className="cholo-art-stage">
-              <Image src="/cholo/cholo-hero.png" alt="Moneda dorada de CHOLO" fill priority sizes="(max-width: 900px) 90vw, 48vw" />
+              <Image src="/a-cholo.png" alt="Moneda dorada de CHOLO" fill priority sizes="(max-width: 900px) 90vw, 48vw" />
               <span className="cross cross-one">+</span><span className="cross cross-two">+</span>
               <div className="scanline" />
             </div>
@@ -206,7 +229,7 @@ export default function HomePage() {
             <div className="cholo-gallery-grid">
               {gallery.map((src, index) => (
                 <button key={src} onClick={() => setSelectedImage(src)} aria-label={`Abrir arte CHOLO ${index + 1}`}>
-                  <Image src={src} alt={`Arte CHOLO ${index + 1}`} fill sizes="(max-width: 680px) 50vw, (max-width: 1100px) 33vw, 25vw" />
+                  <GalleryImage src={src} index={index} />
                   <span>{String(index + 1).padStart(2, '0')} / CHOLO</span>
                 </button>
               ))}
@@ -237,20 +260,19 @@ export default function HomePage() {
           <div className="rewards-copy">
             <p className="cholo-kicker">05 / Recompensas de la comunidad</p>
             <h2 className="text-right">¿Quieres ganar<br/><span>100 $CHOLOs?</span></h2>
-            <span className="my-10 inline-block bg-white px-3 py-2 text-[#b7132f]">Sigue a la manada en Instagram y X, y participa por una recompensa de 100 $CHOLOs.</span>
+            <span className="my-10 inline-block bg-white px-3 py-2 text-[#b7132f]">Sigue a la manada en X y participa por una recompensa de 100 $CHOLOs.</span>
             <button className="cholo-button mission-button" type="button" onClick={openRewardFlow}>Reclamar 100 $CHOLOs <ArrowUpRight size={15} /></button>
           </div>
           <div className="mission-list reward-social-list">
-            <article><span>01</span><h3><Instagram size={20} /> Instagram</h3><a href="https://www.instagram.com/cholocoin" target="_blank" rel="noreferrer">@cholocoin <ArrowUpRight size={15} /></a></article>
-            <article><span>02</span><h3><b aria-hidden="true">𝕏</b> X</h3><a href="https://x.com/cholocoinmeme" target="_blank" rel="noreferrer">@cholocoinmeme <ArrowUpRight size={15} /></a></article>
-            <p className="reward-note"><strong>01</strong> Sigue ambas cuentas <i /> <strong>02</strong> Mantente atento al anuncio</p>
+            <article><span>01</span><h3><b aria-hidden="true">𝕏</b> X</h3><a href="https://x.com/cholocoinmeme" target="_blank" rel="noreferrer">@cholocoinmeme <ArrowUpRight size={15} /></a></article>
+            <p className="reward-note"><strong>01</strong> Sigue la cuenta <i /> <strong>02</strong> Mantente atento al anuncio</p>
           </div>
         </div>
       </section>
 
       <footer className="cholo-footer">
         <div className="cholo-shell footer-main-cholo">
-          <a href="#top" className="footer-brand-cholo"><Image src="/cholo/cholo-hero.png" alt="" width={52} height={52} /><span>$CHOLO<br /></span></a>
+          <a href="#top" className="footer-brand-cholo"><Image src="/a-cholo.png" alt="" width={52} height={52} /><span>$CHOLO<br /></span></a>
           <p>el perro punk que nunca obdc.</p>
           <div><a href="https://x.com/cholocoinmeme" target="_blank" rel="noreferrer">X ↗</a><Link href="/wallet">Billetera ↗</Link><Link href="/account">Cuenta ↗</Link></div>
         </div>

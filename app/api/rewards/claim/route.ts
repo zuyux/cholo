@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
   if (!address || typeof address !== 'string') return NextResponse.json({ error: 'Falta la dirección de la billetera' }, { status: 400 });
   try {
     const current = await getReward(address);
-    if (!current?.instagram_connected || !current?.x_following) return NextResponse.json({ error: 'Completa primero los requisitos sociales' }, { status: 409 });
+    if (!current?.x_following) return NextResponse.json({ error: 'Primero sigue la cuenta de CHOLO en X' }, { status: 409 });
     if (current.claimed) return NextResponse.json(toStatus(current));
     return NextResponse.json(toStatus(await saveReward(address, { claimed: true, claimed_at: new Date().toISOString() })));
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'No se pudo registrar la recompensa' }, { status: 500 }); }

@@ -16,7 +16,9 @@ export async function GET(request: NextRequest) {
     const me = await meResponse.json();
     if (!meResponse.ok || !me.data?.id) throw new Error('No se pudo obtener el perfil de X');
     await saveReward(session.address, { x_user_id: me.data.id, x_username: me.data.username, x_access_token: token.access_token, x_refresh_token: token.refresh_token || null, x_token_expires_at: new Date(Date.now() + Number(token.expires_in || 7200) * 1000).toISOString(), x_connected: true });
-    const response = NextResponse.redirect(session.returnTo);
+    const destination = new URL(session.returnTo);
+    destination.searchParams.set('rewardXConnected', 'true');
+    const response = NextResponse.redirect(destination);
     response.cookies.delete('cholo_x_oauth');
     return response;
   } catch (error) {

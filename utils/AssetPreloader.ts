@@ -114,8 +114,8 @@ export class AssetPreloader {
    */
   static getCriticalAssets(): string[] {
     return [
-      '/cholo/cholo-hero.png',
-      '/cholo/gallery-11.png',
+      '/a-cholo.png',
+      '/cholo/cholo-surfer.png',
       '/nft/01.png',
     ];
   }
