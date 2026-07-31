@@ -11,10 +11,11 @@ create table if not exists public.reward_claims (
   x_following boolean not null default false,
   claimed boolean not null default false,
   claimed_at timestamptz,
+  terms_accepted_at timestamptz,
+  terms_version text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 alter table public.reward_claims enable row level security;
 revoke all on public.reward_claims from anon, authenticated;
-

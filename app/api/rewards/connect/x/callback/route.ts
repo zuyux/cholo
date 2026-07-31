@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveReward, xClientConfig } from '@/lib/rewardService';
+import { requireRewardAddress } from '@/lib/rewardAuth';
 
 export async function GET(request: NextRequest) {
   const fallback = new URL('/', request.nextUrl.origin);
@@ -7,6 +8,8 @@ export async function GET(request: NextRequest) {
     const raw = request.cookies.get('cholo_x_oauth')?.value;
     if (!raw) throw new Error('La sesión OAuth expiró');
     const session = JSON.parse(Buffer.from(raw, 'base64url').toString()) as { state: string; verifier: string; address: string; returnTo: string };
+    const authenticatedAddress = requireRewardAddress(request);
+    if (authenticatedAddress.toLowerCase() !== session.address.toLowerCase()) throw new Error('La sesión de billetera no coincide');
     if (!request.nextUrl.searchParams.get('code') || request.nextUrl.searchParams.get('state') !== session.state) throw new Error('Respuesta OAuth inválida');
     const { clientId, clientSecret, redirectUri } = xClientConfig();
     const tokenResponse = await fetch('https://api.x.com/2/oauth2/token', { method: 'POST', headers: { Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ code: request.nextUrl.searchParams.get('code')!, grant_type: 'authorization_code', redirect_uri: redirectUri, code_verifier: session.verifier }) });

@@ -7,7 +7,7 @@ export default function Footer() {
       <div className="container mx-auto h-full px-4">
         <div className="flex justify-between items-center h-full">
           <p className="text-center flex-1 truncate">
-$CHOLO is a meme token created for cultural and educational purposes. It does not represent an investment and carries no promise of financial return.
+            $CHOLO is a meme token created for cultural and educational purposes. It does not represent an investment and carries no promise of financial return.
           </p>
           <div className="ml-4 flex items-center gap-2 h-full">
             <NetworkSelector />

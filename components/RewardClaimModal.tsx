@@ -2,35 +2,50 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import Link from 'next/link';
 import { Check, LoaderCircle, ShieldCheck, X } from 'lucide-react';
 import { useCurrentAddress } from '@/hooks/useCurrentAddress';
-import { consumeQueuedWelcomeModalAddress, WELCOME_MODAL_AFTER_SIGN_IN_EVENT } from './WalletProvider';
+import { consumeQueuedWelcomeModalAddress, useWallet, WELCOME_MODAL_AFTER_SIGN_IN_EVENT } from './WalletProvider';
 import { OPEN_REWARD_CLAIM_EVENT, type RewardClaimStatus } from '@/lib/rewardEvents';
+import { authenticateRewardWallet } from '@/lib/rewardAuthClient';
+import { requestLeatherStacksSignIn, requestXverseStacksSignIn } from '@/lib/stacksSignInMessage';
 
-const EMPTY_STATUS: RewardClaimStatus = { x: { connected: false, following: false }, eligible: false, claimed: false };
+const REWARD_TERMS_VERSION = '2026-07-30';
+const EMPTY_STATUS: RewardClaimStatus = { x: { connected: false, following: false }, eligible: false, claimed: false, termsAccepted: false };
 const SOCIALS = {
   x: { label: 'X', account: '@cholocoinmeme', followUrl: 'https://x.com/cholocoinmeme' },
 } as const;
 
 export default function RewardClaimModal() {
   const address = useCurrentAddress();
+  const { walletType } = useWallet();
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<RewardClaimStatus>(EMPTY_STATUS);
   const [checking, setChecking] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const [followingX, setFollowingX] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [acceptingTerms, setAcceptingTerms] = useState(false);
 
   const loadStatus = useCallback(async (walletAddress: string, verify = false) => {
     setChecking(true); setMessage(null);
     try {
-      const response = await fetch(`/api/rewards/social-status?address=${encodeURIComponent(walletAddress)}${verify ? '&verify=true' : ''}`, { cache: 'no-store' });
+      if (verify) {
+        const leatherProvider = window.LeatherProvider;
+        if (walletType === 'leather' && leatherProvider && typeof leatherProvider === 'object' && 'request' in leatherProvider && typeof leatherProvider.request === 'function') {
+          const provider = leatherProvider as { request: (method: string, params?: unknown) => Promise<unknown> };
+          await authenticateRewardWallet(walletAddress, (message) => requestLeatherStacksSignIn(provider, walletAddress, message));
+        } else if (walletType === 'xverse') {
+          await authenticateRewardWallet(walletAddress, (message) => requestXverseStacksSignIn(walletAddress, message));
+        }
+      }
+      const response = await fetch(`/api/rewards/social-status${verify ? '?verify=true' : ''}`, { cache: 'no-store' });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'No se pudo comprobar tus cuentas');
       setStatus(payload);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo comprobar tus cuentas'); }
     finally { setChecking(false); }
-  }, []);
+  }, [walletType]);
 
   useEffect(() => {
     const show = (event?: Event) => {
@@ -61,10 +76,23 @@ export default function RewardClaimModal() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open]);
 
+  const acceptTerms = async () => {
+    if (status.termsAccepted) return;
+    setAcceptingTerms(true); setMessage(null);
+    try {
+      const response = await fetch('/api/rewards/terms/accept', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accepted: true, version: REWARD_TERMS_VERSION }) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'No se pudo registrar la aceptación');
+      setStatus(payload);
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo registrar la aceptación'); }
+    finally { setAcceptingTerms(false); }
+  };
+
   const connectX = () => {
     if (!address) return;
+    if (!status.termsAccepted) { setMessage('Acepta los términos y condiciones antes de autenticar X.'); return; }
     const returnTo = `${window.location.pathname}${window.location.search}`;
-    window.location.assign(`/api/rewards/connect/x?address=${encodeURIComponent(address)}&returnTo=${encodeURIComponent(returnTo)}`);
+    window.location.assign(`/api/rewards/connect/x?returnTo=${encodeURIComponent(returnTo)}`);
   };
 
   const followOnX = async () => {
@@ -74,7 +102,7 @@ export default function RewardClaimModal() {
       const response = await fetch('/api/rewards/follow/x', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address }),
+        body: JSON.stringify({}),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'No se pudo seguir la cuenta en X');
@@ -94,10 +122,10 @@ export default function RewardClaimModal() {
     if (!address) return;
     setClaiming(true); setMessage(null);
     try {
-      const response = await fetch('/api/rewards/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address }) });
+      const response = await fetch('/api/rewards/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'No se pudo reclamar la recompensa');
-      setStatus(payload); setMessage('¡Listo! Tu recompensa de 100 $CHOLOs fue registrada.');
+      setStatus(payload); setMessage('¡Listo! Tu recompensa de 1,000 $CHOLOs fue registrada.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo reclamar la recompensa'); }
     finally { setClaiming(false); }
   };
@@ -108,8 +136,12 @@ export default function RewardClaimModal() {
       <section className="reward-modal" role="dialog" aria-modal="true" aria-labelledby="reward-title" onMouseDown={(event) => event.stopPropagation()}>
         <button className="reward-modal-close" onClick={() => setOpen(false)} aria-label="Cerrar"><X size={20} /></button>
         <p className="cholo-kicker">Recompensa de bienvenida</p>
-        <h2 id="reward-title">Reclama <span>100 $CHOLOs</span></h2>
+        <h2 id="reward-title">Reclama <span>1,000 $CHOLOs</span></h2>
         <p className="reward-modal-lead">Conecta X y sigue a la manada. Verificaremos el requisito antes de habilitar la recompensa.</p>
+        <label className="reward-terms-consent">
+          <input type="checkbox" checked={status.termsAccepted} disabled={status.termsAccepted || acceptingTerms} onChange={(event) => event.target.checked && void acceptTerms()} />
+          <span>Acepto los <Link href="/reward-terms" target="_blank" rel="noopener noreferrer">Términos y condiciones de recompensa</Link>.</span>
+        </label>
         <div className="reward-modal-steps">
           <article className={status.x.following ? 'is-complete' : ''}>
             <span className="reward-step-number">01</span>
@@ -119,9 +151,11 @@ export default function RewardClaimModal() {
           </article>
         </div>
         <button className="reward-check-button" onClick={() => address && loadStatus(address, true)} disabled={checking || !address}>{checking ? <LoaderCircle className="animate-spin" size={17} /> : <ShieldCheck size={17} />}{checking ? 'Comprobando...' : 'Comprobar automáticamente'}</button>
-        <button className="reward-claim-button" onClick={claim} disabled={!status.eligible || status.claimed || claiming}>{status.claimed ? 'Recompensa reclamada' : claiming ? 'Registrando...' : 'Reclamar 100 $CHOLOs'}</button>
+        <button className="reward-claim-button" onClick={claim} disabled={!status.eligible || !status.termsAccepted || status.claimed || claiming}>{status.claimed ? 'Recompensa reclamada' : claiming ? 'Registrando...' : 'Reclamar 1,000 $CHOLOs'}</button>
         {message && <p className="reward-modal-message" role="status">{message}</p>}
-        <p className="reward-modal-fineprint">Una recompensa por persona y billetera. Nunca te pediremos tu frase semilla.</p>
+        <p className="reward-modal-fineprint">
+          Una recompensa por persona y billetera. Nunca te pediremos tu frase semilla.
+        </p>
       </section>
     </div>, document.body,
   );

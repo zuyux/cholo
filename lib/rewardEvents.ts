@@ -10,4 +10,5 @@ export interface RewardClaimStatus {
   x: RewardSocialStatus;
   eligible: boolean;
   claimed: boolean;
+  termsAccepted: boolean;
 }

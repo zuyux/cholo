@@ -86,11 +86,20 @@ export const GetInButton = (buttonProps: GetInButtonProps) => {
   }, []);
 
   useEffect(() => {
-    const openAuthFlow = () => setShowGetInModal(true);
+    const openAuthFlow = () => {
+      if (isSessionLoggedIn || isWalletConnected || isEncryptedAuthenticated) {
+        setShowGetInModal(false);
+        setShowUserModal(true);
+        return;
+      }
+
+      setShowUserModal(false);
+      setShowGetInModal(true);
+    };
 
     window.addEventListener(OPEN_AUTH_FLOW_EVENT, openAuthFlow);
     return () => window.removeEventListener(OPEN_AUTH_FLOW_EVENT, openAuthFlow);
-  }, []);
+  }, [isEncryptedAuthenticated, isSessionLoggedIn, isWalletConnected]);
 
   // Listen for disconnect to update session state
   useEffect(() => {

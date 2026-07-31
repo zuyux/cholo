@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUpRight, Check, Copy, LoaderCircle, X } from 'lucide-react';
 import { motion, useScroll, useSpring, useTransform } from 'framer-motion';
 import { OPEN_AUTH_FLOW_EVENT } from '@/lib/authEvents';
@@ -62,6 +62,55 @@ function GalleryImage({ src, index }: { src: string; index: number }) {
       />
     </>
   );
+}
+
+function CountUpPercentage({ value }: { value: string }) {
+  const elementRef = useRef<HTMLElement>(null);
+  const [displayValue, setDisplayValue] = useState('0.00%');
+
+  useEffect(() => {
+    const element = elementRef.current;
+    const target = Number.parseFloat(value);
+
+    if (!element || !Number.isFinite(target)) return;
+
+    let animationFrame = 0;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+
+        observer.disconnect();
+
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          setDisplayValue(`${target.toFixed(2)}%`);
+          return;
+        }
+
+        const startedAt = performance.now();
+        const duration = 1200;
+
+        const update = (now: number) => {
+          const progress = Math.min((now - startedAt) / duration, 1);
+          const easedProgress = 1 - Math.pow(1 - progress, 3);
+          setDisplayValue(`${(target * easedProgress).toFixed(2)}%`);
+
+          if (progress < 1) animationFrame = requestAnimationFrame(update);
+        };
+
+        animationFrame = requestAnimationFrame(update);
+      },
+      { threshold: 0.45 },
+    );
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(animationFrame);
+    };
+  }, [value]);
+
+  return <strong ref={elementRef}>{displayValue}</strong>;
 }
 
 function CholoArchiveTimeline() {
@@ -148,7 +197,7 @@ export default function HomePage() {
       <section className="cholo-hero" id="top">
         <div className="hero-copy-cholo">
           <p className="cholo-kicker">Edición Bitcoin Punk · Costa Norte</p>
-          <h1>el perro que nunca obdc</h1>
+          <h1>el perro qe nunca obdc</h1>
           <p className="cholo-deck">
             desde este momento, eres libre e independiente, por la voluntad general de CHOLO
           </p>
@@ -185,7 +234,7 @@ export default function HomePage() {
         <div className="cholo-shell cholo-story-grid">
           <div>
             <p className="cholo-kicker">01 / Los archivos CHOLO</p>
-            <h2>Todo internet necesita un guardián.</h2>
+            <h2>internet requiere guardián</h2>
           </div>
           <div className="cholo-story-copy">
             <p className="story-lead">Nacido antes de los imperios. Reaparecido justo a tiempo para la economía digital.</p>
@@ -199,14 +248,14 @@ export default function HomePage() {
       <section className="cholo-dark-section" id="tokenomics">
         <div className="cholo-shell">
           <div className="cholo-heading-row">
-            <div><p className="cholo-kicker">02 / Economía Cholo</p><h2>Distribución con propósito.</h2></div>
+            <div><p className="cholo-kicker">02 / Economía Cholo</p><h2>Distribución cholidaria</h2></div>
             <p>Una economía comunitaria para liquidez, participación, ciencia descentralizada y cultura digital verificable.</p>
           </div>
           <div className="cholo-terminal token-terminal-cholo">
             <div className="cholo-terminal-bar"><span>INFO_TOKEN_CHOLO.SYS</span><span className="system-online"><i />SISTEMA EN LÍNEA</span></div>
             <div className="allocation-grid">
               {allocations.map(([index, label, value]) => (
-                <article key={index}><span>{index}</span><strong>{value}</strong><p>{label}</p></article>
+                <article key={index}><span>{index}</span><CountUpPercentage value={value} /><p>{label}</p></article>
               ))}
             </div>
             <div className="contract-row-cholo">
@@ -221,7 +270,7 @@ export default function HomePage() {
       <section className="cholo-gallery-section" id="gallery">
         <div className="cholo-shell">
           <div className="gallery-heading">
-            <div><p className="cholo-kicker">03 / Transmisiones culturales</p><h2>El archivo no se queda quieto.</h2></div>
+            <div><p className="cholo-kicker">03 / Transmisiones culturales</p><h2>todos somos cholos</h2></div>
             <p><strong>{gallery.length}</strong><span>piezas recuperadas</span></p>
           </div>
           <div className="gallery-terminal">
@@ -244,7 +293,7 @@ export default function HomePage() {
             <p className="cholo-kicker">04 / La misión</p>
             <h2 className="text-right">no prometemos nada. <br/>lo haremos todo.</h2>
             <p>$CHOLO convierte la energía de una comunidad meme en apoyo al desarrollo de un videojuego, investigación, educación cripto, arte y código abierto.</p>
-            <button className="cholo-button mission-button" type="button" onClick={openAuthFlow}>Entrar al ecosistema <ArrowUpRight size={15} /></button>
+            <button className="cholo-button mission-button cursor-pointer" type="button" onClick={openAuthFlow}>Entrar al ecosistema <ArrowUpRight size={15} /></button>
           </div>
           <div className="mission-list">
             <article><span>01</span><h3>GameFi</h3><p>Juego de metaverso abierto para competir por $CHOLOs.</p></article>
@@ -259,9 +308,9 @@ export default function HomePage() {
         <div className="cholo-shell mission-grid">
           <div className="rewards-copy">
             <p className="cholo-kicker">05 / Recompensas de la comunidad</p>
-            <h2 className="text-right">¿Quieres ganar<br/><span>100 $CHOLOs?</span></h2>
-            <span className="my-10 inline-block bg-white px-3 py-2 text-[#b7132f]">Sigue a la manada en X y participa por una recompensa de 100 $CHOLOs.</span>
-            <button className="cholo-button mission-button" type="button" onClick={openRewardFlow}>Reclamar 100 $CHOLOs <ArrowUpRight size={15} /></button>
+            <h2 className="text-right">¿Quieres ganar<br/><span>1,000 $CHOLOs?</span></h2>
+            <span className="my-10 inline-block bg-white px-3 py-2 text-[#b7132f]">Sigue a la manada en X y participa por una recompensa de 1,000 $CHOLOs.</span>
+            <button className="cholo-button mission-button cursor-pointer" type="button" onClick={openRewardFlow}>Reclamar 1,000 $CHOLOs <ArrowUpRight size={15} /></button>
           </div>
           <div className="mission-list reward-social-list">
             <article><span>01</span><h3><b aria-hidden="true">𝕏</b> X</h3><a href="https://x.com/cholocoinmeme" target="_blank" rel="noreferrer">@cholocoinmeme <ArrowUpRight size={15} /></a></article>
@@ -272,7 +321,7 @@ export default function HomePage() {
 
       <footer className="cholo-footer">
         <div className="cholo-shell footer-main-cholo">
-          <a href="#top" className="footer-brand-cholo"><Image src="/a-cholo.png" alt="" width={52} height={52} /><span>$CHOLO<br /></span></a>
+          <a href="#top" className="footer-brand-cholo"><Image src="/cholo-min.png" alt="" width={52} height={52} /><span>$CHOLO<br /></span></a>
           <p>el perro punk que nunca obdc.</p>
           <div><a href="https://x.com/cholocoinmeme" target="_blank" rel="noreferrer">X ↗</a><Link href="/wallet">Billetera ↗</Link><Link href="/account">Cuenta ↗</Link></div>
         </div>

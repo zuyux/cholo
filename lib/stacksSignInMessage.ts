@@ -164,10 +164,10 @@ export const requestLeatherMainnetStacksAddress = async (provider: RpcCapablePro
 
 export const requestLeatherStacksSignIn = async (
   provider: RpcCapableProvider,
-  address: string
+  address: string,
+  message = buildCholoStacksSignInMessage(address),
 ): Promise<StacksSignInSignature> => {
   assertMainnetStacksAddress(address, 'Leather');
-  const message = buildCholoStacksSignInMessage(address);
 
   try {
     const response = await provider.request('stx_signMessage', { message });
@@ -177,9 +177,8 @@ export const requestLeatherStacksSignIn = async (
   }
 };
 
-export const requestXverseStacksSignIn = async (address: string): Promise<StacksSignInSignature> => {
+export const requestXverseStacksSignIn = async (address: string, message = buildCholoStacksSignInMessage(address)): Promise<StacksSignInSignature> => {
   assertMainnetStacksAddress(address, 'Xverse');
-  const message = buildCholoStacksSignInMessage(address);
 
   try {
     const response = await satsRequest('stx_signMessage', { message });

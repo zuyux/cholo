@@ -11,6 +11,7 @@
 .reward-modal-steps { display:grid; gap:10px; margin:28px 0 18px; }.reward-modal-steps article { display:grid; grid-template-columns:32px 38px 1fr auto; align-items:center; gap:10px; min-height:76px; padding:12px 14px; border:1px solid rgba(193,139,78,.3); background:#17110f; }.reward-modal-steps article.is-complete { border-color:rgba(98,181,118,.55); }.reward-step-number { color:#a38870; font:700 .65rem/1 var(--font-chakra-petch),monospace; }.reward-step-icon { display:grid; place-items:center; color:#f1dfbd; }.reward-step-icon b { font:700 1.35rem/1 Arial,sans-serif; }.reward-step-copy { display:flex; flex-direction:column; gap:4px; }.reward-step-copy strong { font:700 .86rem/1 var(--font-chakra-petch),monospace; text-transform:uppercase; }.reward-step-copy span { color:#a38870; font-size:.75rem; }.reward-modal-steps button,.reward-modal-steps a { padding:10px 12px; border:1px solid #c18b4e; color:#f1dfbd; background:transparent; text-decoration:none; font:700 .62rem/1 var(--font-chakra-petch),monospace; text-transform:uppercase; cursor:pointer; }.reward-verified { display:flex; align-items:center; gap:5px; color:#75c98a; font:700 .62rem/1 var(--font-chakra-petch),monospace; text-transform:uppercase; }
 .reward-modal-steps button:disabled { cursor:wait; opacity:.55; }
 .reward-check-button,.reward-claim-button { width:100%; min-height:48px; display:flex; align-items:center; justify-content:center; gap:9px; border:1px solid #c18b4e; font:700 .7rem/1 var(--font-chakra-petch),monospace; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; }.reward-check-button { color:#f1dfbd; background:transparent; }.reward-claim-button { margin-top:9px; border-color:#b7132f; color:#faeed5; background:#b7132f; }.reward-check-button:disabled,.reward-claim-button:disabled { cursor:not-allowed; opacity:.42; }.reward-modal-message { margin:14px 0 0; color:#dcad76; text-align:center; font-size:.8rem; }.reward-modal-fineprint { margin:17px 0 0; color:#806e61; font-size:.69rem; text-align:center; }
+.reward-terms-consent { display:flex; align-items:flex-start; gap:10px; margin:14px 0 5px; color:#bba28c; font-size:.75rem; line-height:1.45; cursor:pointer; }.reward-terms-consent input { width:16px; height:16px; margin-top:1px; accent-color:#b7132f; }.reward-terms-consent a { color:#dcad76; text-decoration:underline; text-underline-offset:3px; }
 @media (max-width:560px) { .reward-modal-steps article { grid-template-columns:24px 32px 1fr; }.reward-modal-steps article > button,.reward-modal-steps article > a,.reward-verified { grid-column:3; justify-self:start; }.reward-modal { box-shadow:6px 6px 0 rgba(183,19,47,.35); } }
 .dark .loader-invert-light {
   filter: none;
@@ -332,6 +333,22 @@ html, body {
 .cholo-paper-section.cholo-rewards { color:#fff; background:var(--cholo-red); }.cholo-paper-section.cholo-rewards::before,.cholo-paper-section.cholo-rewards::after { background:rgba(255,255,255,.55); }.cholo-rewards .cholo-kicker,.cholo-rewards .rewards-copy h2,.cholo-rewards .rewards-copy h2 span,.cholo-rewards .rewards-copy > p:last-child,.cholo-rewards .reward-social-list h3,.cholo-rewards .reward-social-list span,.cholo-rewards .reward-note,.cholo-rewards .reward-note strong { color:#fff; }.cholo-rewards .mission-button { border-color:#fff; color:#fff; background:transparent; }.cholo-rewards .mission-button:hover { color:var(--cholo-red); background:#fff; border-color:#fff; }.cholo-rewards .reward-social-list article { border-color:rgba(255,255,255,.5); }.cholo-rewards .reward-social-list article > a { border-color:#fff; color:#fff; }.cholo-rewards .reward-social-list article > a:hover { color:var(--cholo-red); background:#fff; border-color:#fff; }.cholo-rewards .reward-note i { background:rgba(255,255,255,.5); }
 .cholo-footer { padding:60px 0 22px; color:var(--cholo-paper); background:#0b0908; border-top:1px solid rgba(193,139,78,.4); }.footer-main-cholo { display:grid; grid-template-columns:1fr 1fr 1fr; align-items:center; padding-bottom:45px; }.footer-brand-cholo { display:flex; align-items:center; gap:13px; color:inherit; text-decoration:none; font:700 .72rem/1.05 var(--font-chakra-petch),monospace; letter-spacing:.13em; }.footer-brand-cholo img { border-radius:50%; }.footer-main-cholo > p { color:var(--cholo-muted); text-align:center; }.footer-main-cholo > div { display:flex; justify-content:flex-end; gap:25px; }.footer-main-cholo > div a { color:inherit; text-decoration:none; font:600 .64rem/1 var(--font-chakra-petch),monospace; letter-spacing:.08em; text-transform:uppercase; }.footer-fineprint { display:flex; justify-content:space-between; gap:30px; padding-top:20px; border-top:1px solid rgba(241,223,189,.13); color:#725f50; font:500 .58rem/1.4 var(--font-chakra-petch),monospace; letter-spacing:.06em; text-transform:uppercase; }.footer-fineprint p { margin:0; }
 .cholo-lightbox { position:fixed; z-index:300; inset:0; display:grid; place-items:center; padding:6vw; background:rgba(8,6,5,.93); backdrop-filter:blur(12px); }.cholo-lightbox > button { position:absolute; top:25px; right:25px; z-index:2; display:grid; place-items:center; width:48px; height:48px; border:1px solid var(--cholo-amber); color:var(--cholo-paper); background:#100d0c; cursor:pointer; }.cholo-lightbox > div { position:relative; width:min(85vw,1000px); height:min(82vh,900px); }.cholo-lightbox img { object-fit:contain; }
+
+/* Playful display face; editorial copy and terminal UI keep their existing fonts. */
+.cholo-hero h1,
+.cholo-site h2,
+.archive-caption h3,
+.mission-list h3,
+.cholo-timeline span,
+.cholo-stats dd,
+.allocation-grid strong,
+.gallery-heading > p strong {
+  font-family:var(--font-bungee),sans-serif;
+  font-weight:400;
+  letter-spacing:-.025em;
+}
+
+.archive-caption h3 { line-height:.9; }
 
 @keyframes cholo-pulse { 70% { box-shadow:0 0 0 7px rgba(121,185,120,0); } 100% { box-shadow:0 0 0 0 rgba(121,185,120,0); } }
 @keyframes cholo-spin { to { transform:rotate(360deg); } }

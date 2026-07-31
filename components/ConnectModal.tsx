@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { getConnectedAccountPasskeyByAddress, getConnectedAccountByAddress } from '@/lib/connectedAccountsApi';
 import { decryptPortableEncryptedWallet, type WalletData } from '@/lib/encryptedStorage';
 import ImportWalletModal from './ImportWalletModal';
+import { authenticateRewardWallet } from '@/lib/rewardAuthClient';
 // Password verification utility for settings changes
 // Usage: await verifyPassphraseForSettings(address, passphrase, privateKey)
 export async function verifyPassphraseForSettings(address: string, passphrase: string, privateKey: string): Promise<boolean> {
@@ -377,7 +378,7 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
                               ) {
                                 const leatherProvider = provider as { request: (method: string, params?: unknown) => Promise<unknown> };
                                 const stxAddress = await requestLeatherMainnetStacksAddress(leatherProvider);
-                                await requestLeatherStacksSignIn(leatherProvider, stxAddress);
+                                await authenticateRewardWallet(stxAddress, (message) => requestLeatherStacksSignIn(leatherProvider, stxAddress, message));
                                 setAddress(stxAddress);
                                 setWalletType('leather');
                                 await persistSessionForWallet(stxAddress, 'leather');
@@ -393,7 +394,7 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
                             } else if (w.id === "xverse") {
                               try {
                                 const stxAddress = await requestXverseMainnetStacksAddress();
-                                await requestXverseStacksSignIn(stxAddress);
+                                await authenticateRewardWallet(stxAddress, (message) => requestXverseStacksSignIn(stxAddress, message));
                                 setAddress(stxAddress);
                                 setWalletType('xverse');
                                 await persistSessionForWallet(stxAddress, 'xverse');

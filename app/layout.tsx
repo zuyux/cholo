@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Chakra_Petch } from "next/font/google";
+import { Bungee, Inter, Chakra_Petch } from "next/font/google";
 import { Navbar } from "@/components/Navbar";
 import { GetInButton } from "@/components/GetIn";
 import { Providers } from '@/components/ui/provider';
@@ -29,6 +29,12 @@ const chakraPetch = Chakra_Petch({
   variable: "--font-chakra-petch",
   subsets: ["latin"],
   weight: ["400", "700"],
+});
+
+const bungee = Bungee({
+  variable: "--font-bungee",
+  subsets: ["latin"],
+  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -85,7 +91,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} ${chakraPetch.variable} antialiased`}>
+      <body className={`${inter.variable} ${chakraPetch.variable} ${bungee.variable} antialiased`}>
         <GlobalErrorHandler />
         <I18nProvider locale="es" messages={messages.es}>
           <WalletProvider>
