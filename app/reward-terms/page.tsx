@@ -83,7 +83,7 @@ export default function RewardTermsPage() {
       <article className="cholo-shell pb-24 pt-44 sm:pt-48">
         <header className="max-w-3xl border-b border-[#c18b4e]/40 pb-10">
           <p className="cholo-kicker">Legal / Recompensas</p>
-          <h1 className="font-serif text-5xl font-black tracking-[-0.04em] text-[#faeed5] sm:text-7xl">
+          <h1 className="text-5xl font-black tracking-tight text-[#faeed5] sm:text-7xl">
             Términos y condiciones de recompensa
           </h1>
           <p className="mt-6 text-sm uppercase tracking-[0.12em] text-[#a38870]">
@@ -98,7 +98,7 @@ export default function RewardTermsPage() {
 
           {sections.map((section) => (
             <section key={section.title}>
-              <h2 className="font-serif text-2xl font-bold tracking-tight text-[#faeed5] sm:text-3xl">
+              <h2 className="text-2xl font-bold tracking-tight text-[#faeed5] sm:text-3xl">
                 {section.title}
               </h2>
               <div className="mt-4 space-y-4 text-base leading-8 text-[#c8b39a]">
@@ -108,7 +108,7 @@ export default function RewardTermsPage() {
           ))}
 
           <section className="border border-[#c18b4e]/40 bg-[#1b1412] p-6 sm:p-8">
-            <h2 className="font-serif text-2xl font-bold text-[#faeed5]">Contacto y documentos relacionados</h2>
+            <h2 className="text-2xl font-bold text-[#faeed5]">Contacto y documentos relacionados</h2>
             <p className="mt-4 leading-8 text-[#c8b39a]">
               Si tienes preguntas sobre el Programa, escribe a{" "}
               <a className="text-[#dc3452] underline underline-offset-4" href="mailto:40230@pm.me">40230@pm.me</a>.

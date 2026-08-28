@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Bungee, Inter, Chakra_Petch } from "next/font/google";
+import { Bai_Jamjuree, Bungee, Chakra_Petch } from "next/font/google";
 import { Navbar } from "@/components/Navbar";
 import { GetInButton } from "@/components/GetIn";
 import { Providers } from '@/components/ui/provider';
@@ -20,9 +20,10 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-const inter = Inter({
-  variable: "--font-inter",
+const baiJamjuree = Bai_Jamjuree({
+  variable: "--font-bai-jamjuree",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 const chakraPetch = Chakra_Petch({
@@ -37,10 +38,50 @@ const bungee = Bungee({
   weight: "400",
 });
 
+const siteUrl = new URL("https://cholo.meme");
+const siteTitle = "$CHOLO | Primera memecoin de LATAM en Bitcoin";
+const siteDescription =
+  "$CHOLO es una memecoin cultural de LATAM en Bitcoin y Stacks, inspirada en el perro peruano sin pelo, con suministro de 8.9B tokens, arte coleccionable, billetera y comunidad.";
+const ogImage = {
+  url: "/cholo/cholo-surfer.png",
+  width: 1280,
+  height: 853,
+  alt: "Arte CHOLO surfer para la comunidad $CHOLO",
+};
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "$CHOLO",
+  alternateName: "CHOLO",
+  url: siteUrl.toString(),
+  description: siteDescription,
+  inLanguage: "es-PE",
+  image: new URL(ogImage.url, siteUrl).toString(),
+  publisher: {
+    "@type": "Organization",
+    name: "$CHOLO",
+    url: siteUrl.toString(),
+    logo: new URL("/cholo-min.png", siteUrl).toString(),
+    sameAs: ["https://x.com/cholocoinmeme"],
+  },
+  about: {
+    "@type": "Thing",
+    name: "$CHOLO token",
+    description: "Memecoin cultural de LATAM en Bitcoin y Stacks con suministro de 8.9B tokens.",
+  },
+};
+
 export const metadata: Metadata = {
-  title: "$CHOLO - PRIMERA MEMECOIN DE LATAM EN BITCOIN",
-  description: "$CHOLO es un token fungible en Stacks (7,000,000,000 unidades), inspirado en el perro peruano sin pelo, símbolo memético y patrimonio nacional. Financia DeSci, I+D y proyectos comunitarios open source.",
+  metadataBase: siteUrl,
+  title: {
+    default: siteTitle,
+    template: "%s | $CHOLO",
+  },
+  description: siteDescription,
   applicationName: '$CHOLO',
+  alternates: {
+    canonical: "/",
+  },
   icons: {
     icon: [
       { url: '/favicon.ico' },
@@ -48,24 +89,54 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: '/apple-touch-icon.png', type: 'image/png', sizes: '180x180' }],
   },
-  keywords: "$CHOLO, Stacks, memecoin, DeSci, token, blockchain, comunidad, open source, Perú, perro peruano",
+  manifest: "/site.webmanifest",
+  keywords: [
+    "$CHOLO",
+    "CHOLO token",
+    "cholo memecoin",
+    "memecoin LATAM",
+    "Bitcoin memecoin",
+    "Stacks token",
+    "Bitcoin",
+    "Stacks",
+    "8.9B supply",
+    "perro peruano sin pelo",
+    "viringo peruano",
+    "Peru crypto",
+    "NFT CHOLO",
+    "DeSci",
+    "comunidad Bitcoin",
+  ],
   authors: [{ name: "$CHOLO Team" }],
   creator: "$CHOLO",
   publisher: "$CHOLO",
-  robots: "index, follow",
+  category: "cryptocurrency",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   openGraph: {
     type: "website",
     locale: "es_PE",
-    url: "https://cholo.meme",
-    title: "$CHOLO - PRIMERA MEMECOIN DE LATAM EN BITCOIN",
-    description: "$CHOLO es un token fungible en Stacks (7,000,000,000 unidades), inspirado en el perro peruano sin pelo, símbolo memético y patrimonio nacional. Financia DeSci, I+D y proyectos comunitarios open source.",
+    url: "/",
+    title: siteTitle,
+    description: siteDescription,
     siteName: "$CHOLO",
+    images: [ogImage],
   },
   twitter: {
     card: "summary_large_image",
-    title: "$CHOLO - PRIMERA MEMECOIN DE LATAM EN BITCOIN",
-    description: "$CHOLO es un token fungible en Stacks (7,000,000,000 unidades), inspirado en el perro peruano sin pelo, símbolo memético y patrimonio nacional. Financia DeSci, I+D y proyectos comunitarios open source.",
+    title: siteTitle,
+    description: siteDescription,
     creator: "@cholomemecoin",
+    images: [ogImage],
   }
 };
 
@@ -77,6 +148,10 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -91,7 +166,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} ${chakraPetch.variable} ${bungee.variable} antialiased`}>
+      <body className={`${baiJamjuree.variable} ${chakraPetch.variable} ${bungee.variable} antialiased`}>
         <GlobalErrorHandler />
         <I18nProvider locale="es" messages={messages.es}>
           <WalletProvider>
