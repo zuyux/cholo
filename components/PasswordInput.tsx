@@ -20,6 +20,9 @@ interface PasswordInputProps {
   showStrengthIndicator?: boolean;
   autoFocus?: boolean;
   onCancel?: () => void;
+  initialEmail?: string;
+  verifiedEmailTokenOverride?: string;
+  emailLocked?: boolean;
 }
 
 export const PasswordInput: React.FC<PasswordInputProps> = ({
@@ -30,10 +33,13 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
   placeholder = 'Ingresa tu contraseña',
   showStrengthIndicator = false,
   autoFocus = true,
-  onCancel
+  onCancel,
+  initialEmail = '',
+  verifiedEmailTokenOverride,
+  emailLocked = false
 }) => {
   const [password, setPassword] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(initialEmail);
   const [emailCode, setEmailCode] = useState('');
   const [emailCodeSent, setEmailCodeSent] = useState(false);
   const [emailCodeMessage, setEmailCodeMessage] = useState<string | null>(null);
@@ -48,6 +54,18 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
   } | null>(null);
   const [touched, setTouched] = useState(false);
   const isBusy = isLoading || emailCodeLoading;
+
+  useEffect(() => {
+    setEmail(initialEmail);
+  }, [initialEmail]);
+
+  useEffect(() => {
+    if (!verifiedEmailTokenOverride) return;
+    setVerifiedEmailToken(verifiedEmailTokenOverride);
+    setEmailCodeSent(false);
+    setEmailCodeMessage('Cuenta de Google verificada.');
+    setEmailCodeError(null);
+  }, [verifiedEmailTokenOverride]);
 
   // Validate password strength in real-time for create/change modes
   useEffect(() => {
@@ -109,6 +127,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
   };
 
   const handleEmailChange = (value: string) => {
+    if (emailLocked) return;
     setEmail(value);
     setEmailCode('');
     setEmailCodeSent(false);
@@ -224,11 +243,12 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
               placeholder="Ingresa tu correo electrónico"
               className="bg-background text-foreground focus:border-ring border-[1px] border-foreground/10 py-6"
               disabled={isBusy || Boolean(verifiedEmailToken)}
+              readOnly={emailLocked}
               autoComplete="off"
               autoFocus
               required
             />
-            <div className="flex gap-2">
+            {!verifiedEmailTokenOverride && <div className="flex gap-2">
               <Button
                 type="button"
                 onClick={handleRequestEmailCode}
@@ -254,7 +274,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
                   Change
                 </Button>
               )}
-            </div>
+            </div>}
             {emailCodeSent && (
               <div className="flex gap-2">
                 <Input
@@ -283,7 +303,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
               </div>
             )}
             {(emailCodeMessage || emailCodeError) && (
-              <p className={`text-xs ${emailCodeError ? 'text-red-400' : 'text-green-400'}`}>
+              <p className={`text-xs ${emailCodeError ? 'text-red-400' : 'text-green-400 text-center'}`}>
                 {emailCodeError || emailCodeMessage}
               </p>
             )}

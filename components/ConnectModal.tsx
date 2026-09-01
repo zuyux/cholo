@@ -53,6 +53,7 @@ interface ConnectModalProps {
   onError?: (err: string) => void;
   initialConnectMode?: ConnectMode;
   embedded?: boolean;
+  hideEmailOption?: boolean;
 }
 
 type ConnectMode = 'wallets' | 'email' | 'import';
@@ -110,7 +111,7 @@ const isEmailAccountPayload = (payload: unknown): payload is EmailAccountPayload
 };
 
 // Destructure props at the top of your component
-export default function ConnectModal({ onClose, onSuccess, onError, initialConnectMode, embedded = false }: ConnectModalProps) {
+export default function ConnectModal({ onClose, onSuccess, onError, initialConnectMode, embedded = false, hideEmailOption = false }: ConnectModalProps) {
   const [connectMode, setConnectMode] = useState<ConnectMode>(initialConnectMode ?? 'wallets');
   const [wallets, setWallets] = useState<Array<{id: string, name: string, url: string, installed: boolean}>>([]);
   React.useEffect(() => {
@@ -494,19 +495,23 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
                   {walletError}
                 </div>
               )}
-              <div className="flex items-center my-4">
-                <div className="flex-grow border-t border-[#c18b4e]/25"></div>
-                <span className="mx-2 text-xs text-[#a38870]">o</span>
-                <div className="flex-grow border-t border-[#c18b4e]/25"></div>
-              </div>
-              <Button
-                onClick={() => setConnectMode('email')}
-                className="w-full h-12 rounded-[3px] bg-[#1b1412] text-[#f1dfbd] border border-[#c18b4e]/55 font-semibold text-base flex items-center px-4 hover:bg-[#2a1d19] cursor-pointer"
-                type="button"
-              >
-                <Mail className="w-5 h-5 mr-2" />
-                Iniciar sesión
-              </Button>
+              {!hideEmailOption && (
+                <>
+                  <div className="flex items-center my-4">
+                    <div className="flex-grow border-t border-[#c18b4e]/25"></div>
+                    <span className="mx-2 text-xs text-[#a38870]">o</span>
+                    <div className="flex-grow border-t border-[#c18b4e]/25"></div>
+                  </div>
+                  <Button
+                    onClick={() => setConnectMode('email')}
+                    className="w-full h-12 rounded-[3px] bg-[#1b1412] text-[#f1dfbd] border border-[#c18b4e]/55 font-semibold text-base flex items-center px-4 hover:bg-[#2a1d19] cursor-pointer"
+                    type="button"
+                  >
+                    <Mail className="w-5 h-5 mr-2" />
+                    Iniciar sesión
+                  </Button>
+                </>
+              )}
             </>
           )}
           {connectMode === "email" && (

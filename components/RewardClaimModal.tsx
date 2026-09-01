@@ -3,9 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Check, LoaderCircle, ShieldCheck, X } from 'lucide-react';
+import { hashMessage } from '@stacks/encryption';
+import { privateKeyToPublic, publicKeyToHex, signMessageHashRsv } from '@stacks/transactions';
 import { useCurrentAddress } from '@/hooks/useCurrentAddress';
 import { consumeQueuedWelcomeModalAddress, useWallet, WELCOME_MODAL_AFTER_SIGN_IN_EVENT } from './WalletProvider';
+import { useEncryptedWallet } from './EncryptedWalletProvider';
 import { OPEN_REWARD_CLAIM_EVENT, type RewardClaimStatus } from '@/lib/rewardEvents';
 import { authenticateRewardWallet } from '@/lib/rewardAuthClient';
 import { requestLeatherStacksSignIn, requestXverseStacksSignIn } from '@/lib/stacksSignInMessage';
@@ -14,11 +18,13 @@ const REWARD_TERMS_VERSION = '2026-07-30';
 const EMPTY_STATUS: RewardClaimStatus = { x: { connected: false, following: false }, eligible: false, claimed: false, termsAccepted: false };
 const SOCIALS = {
   x: { label: 'X', account: '@cholocoinmeme', followUrl: 'https://x.com/cholocoinmeme' },
+  instagram: { label: 'Instagram', account: '@cholocoin', followUrl: 'https://instagram.com/cholocoin' },
 } as const;
 
 export default function RewardClaimModal() {
   const address = useCurrentAddress();
   const { walletType } = useWallet();
+  const { currentWallet, isAuthenticated: isEncryptedAuthenticated } = useEncryptedWallet();
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<RewardClaimStatus>(EMPTY_STATUS);
   const [checking, setChecking] = useState(false);
@@ -27,17 +33,42 @@ export default function RewardClaimModal() {
   const [message, setMessage] = useState<string | null>(null);
   const [acceptingTerms, setAcceptingTerms] = useState(false);
 
+  const signWithLocalWallet = useCallback(async (message: string) => {
+    if (!currentWallet?.privateKey || !isEncryptedAuthenticated) {
+      throw new Error('Desbloquea tu billetera CHOLO antes de continuar.');
+    }
+    if (currentWallet.address.toLowerCase() !== address?.toLowerCase()) {
+      throw new Error('La billetera desbloqueada no coincide con esta sesión.');
+    }
+
+    const messageHash = Array.from(hashMessage(message), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    return {
+      signature: signMessageHashRsv({ messageHash, privateKey: currentWallet.privateKey }),
+      publicKey: publicKeyToHex(privateKeyToPublic(currentWallet.privateKey)),
+    };
+  }, [address, currentWallet, isEncryptedAuthenticated]);
+
+  const ensureRewardSession = useCallback(async (walletAddress: string) => {
+    const leatherProvider = window.LeatherProvider;
+    if (walletType === 'leather' && leatherProvider && typeof leatherProvider === 'object' && 'request' in leatherProvider && typeof leatherProvider.request === 'function') {
+      const provider = leatherProvider as { request: (method: string, params?: unknown) => Promise<unknown> };
+      await authenticateRewardWallet(walletAddress, (message) => requestLeatherStacksSignIn(provider, walletAddress, message));
+      return;
+    }
+    if (walletType === 'xverse') {
+      await authenticateRewardWallet(walletAddress, (message) => requestXverseStacksSignIn(walletAddress, message));
+      return;
+    }
+    if (currentWallet?.address.toLowerCase() === walletAddress.toLowerCase()) {
+      await authenticateRewardWallet(walletAddress, signWithLocalWallet);
+    }
+  }, [currentWallet, signWithLocalWallet, walletType]);
+
   const loadStatus = useCallback(async (walletAddress: string, verify = false) => {
     setChecking(true); setMessage(null);
     try {
       if (verify) {
-        const leatherProvider = window.LeatherProvider;
-        if (walletType === 'leather' && leatherProvider && typeof leatherProvider === 'object' && 'request' in leatherProvider && typeof leatherProvider.request === 'function') {
-          const provider = leatherProvider as { request: (method: string, params?: unknown) => Promise<unknown> };
-          await authenticateRewardWallet(walletAddress, (message) => requestLeatherStacksSignIn(provider, walletAddress, message));
-        } else if (walletType === 'xverse') {
-          await authenticateRewardWallet(walletAddress, (message) => requestXverseStacksSignIn(walletAddress, message));
-        }
+        await ensureRewardSession(walletAddress);
       }
       const response = await fetch(`/api/rewards/social-status${verify ? '?verify=true' : ''}`, { cache: 'no-store' });
       const payload = await response.json();
@@ -45,7 +76,7 @@ export default function RewardClaimModal() {
       setStatus(payload);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo comprobar tus cuentas'); }
     finally { setChecking(false); }
-  }, [walletType]);
+  }, [ensureRewardSession]);
 
   useEffect(() => {
     const show = (event?: Event) => {
@@ -77,9 +108,10 @@ export default function RewardClaimModal() {
   }, [open]);
 
   const acceptTerms = async () => {
-    if (status.termsAccepted) return;
+    if (status.termsAccepted || !address) return;
     setAcceptingTerms(true); setMessage(null);
     try {
+      await ensureRewardSession(address);
       const response = await fetch('/api/rewards/terms/accept', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accepted: true, version: REWARD_TERMS_VERSION }) });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'No se pudo registrar la aceptación');
@@ -140,6 +172,9 @@ export default function RewardClaimModal() {
         <p className="reward-modal-lead">Conecta X y sigue a la manada. Verificaremos el requisito antes de habilitar la recompensa.</p>
         <label className="reward-terms-consent">
           <input type="checkbox" checked={status.termsAccepted} disabled={status.termsAccepted || acceptingTerms} onChange={(event) => event.target.checked && void acceptTerms()} />
+          <span className="reward-terms-check" aria-hidden="true">
+            {acceptingTerms ? <LoaderCircle className="animate-spin" size={12} /> : status.termsAccepted ? <Check size={12} /> : null}
+          </span>
           <span>Acepto los <Link href="/reward-terms" target="_blank" rel="noopener noreferrer">Términos y condiciones de recompensa</Link>.</span>
         </label>
         <div className="reward-modal-steps">
@@ -148,6 +183,14 @@ export default function RewardClaimModal() {
             <div className="reward-step-icon"><b>𝕏</b></div>
             <div className="reward-step-copy"><strong>X</strong><span>{status.x.username ? `@${status.x.username.replace(/^@/, '')}` : SOCIALS.x.account}</span></div>
             {status.x.following ? <span className="reward-verified"><Check size={16} /> Siguiendo</span> : status.x.connected ? <button onClick={followOnX} disabled={followingX}>{followingX ? 'Siguiendo...' : 'Seguir desde CHOLO'}</button> : <button onClick={connectX}>Autenticar</button>}
+          </article>
+          <article>
+            <span className="reward-step-number">02</span>
+            <div className="reward-step-icon">
+              <Image src="/instagram.svg" alt="" width={22} height={22} unoptimized />
+            </div>
+            <div className="reward-step-copy"><strong>{SOCIALS.instagram.label}</strong><span>{SOCIALS.instagram.account}</span></div>
+            <a href={SOCIALS.instagram.followUrl} target="_blank" rel="noopener noreferrer">Seguir</a>
           </article>
         </div>
         <button className="reward-check-button" onClick={() => address && loadStatus(address, true)} disabled={checking || !address}>{checking ? <LoaderCircle className="animate-spin" size={17} /> : <ShieldCheck size={17} />}{checking ? 'Comprobando...' : 'Comprobar automáticamente'}</button>

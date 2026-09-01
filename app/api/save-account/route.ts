@@ -6,6 +6,7 @@ import {
   type PortableEncryptedWalletData,
 } from '@/lib/encryptedStorage';
 import { assertVerifiedEmailToken, VerifiedEmailTokenError } from '@/lib/emailCodeAuth';
+import { verifyGoogleIdToken } from '@/lib/server/googleAuth';
 
 type SaveAccountBody = {
   email?: string;
@@ -21,6 +22,7 @@ type SaveAccountBody = {
   };
   encryptedWallet?: Partial<PortableEncryptedWalletData>;
   walletLabel?: string;
+  googleIdToken?: string;
 };
 
 const hasEncryptedWalletData = (
@@ -44,8 +46,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required account data' }, { status: 400 });
     }
 
-    if (body.verifiedEmailToken) {
+    if (body.googleIdToken) {
+      const googleIdentity = await verifyGoogleIdToken(body.googleIdToken);
+      if (googleIdentity.email !== normalizedEmail) {
+        return NextResponse.json({ error: 'La credencial de Google no coincide con el correo.' }, { status: 401 });
+      }
+    } else if (body.verifiedEmailToken) {
       assertVerifiedEmailToken(body.verifiedEmailToken, normalizedEmail);
+    } else {
+      return NextResponse.json({ error: 'Verifica tu correo antes de crear la cuenta.' }, { status: 401 });
     }
 
     let encryptedWallet: PortableEncryptedWalletData;

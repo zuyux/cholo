@@ -1,5 +1,6 @@
 import { ModeToggle } from './modeToggle';
 import { NetworkSelector } from './NetworkSelector';
+import Link from 'next/link';
 
 export default function Footer() {
   return (
@@ -9,6 +10,14 @@ export default function Footer() {
           <p className="text-center flex-1 truncate">
             $CHOLO is a meme token created for cultural and educational purposes. It does not represent an investment and carries no promise of financial return.
           </p>
+          <nav className="ml-4 hidden items-center gap-3 whitespace-nowrap text-[11px] text-white/80 sm:flex" aria-label="Legal">
+            <Link href="/terms" className="hover:text-white hover:underline">
+              Términos
+            </Link>
+            <Link href="/privacy" className="hover:text-white hover:underline">
+              Privacidad
+            </Link>
+          </nav>
           <div className="ml-4 flex items-center gap-2 h-full">
             <NetworkSelector />
             <ModeToggle />

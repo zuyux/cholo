@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { LoaderCircle } from 'lucide-react';
 import EmailBackupModal from "@/components/EmailBackupModal";
@@ -76,6 +77,29 @@ export default function AccountCreatedPage() {
     }
   };
 
+  const handleDownloadSeedPhrase = () => {
+    if (!wallet || typeof window === "undefined") return;
+
+    const fileContents = [
+      "$CHOLO - Frase semilla",
+      "",
+      "Guarda este archivo en un lugar seguro y nunca lo compartas.",
+      "",
+      wallet.mnemonic,
+      "",
+      `Direccion: ${wallet.address}`,
+    ].join("\n");
+    const blob = new Blob([fileContents], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `cholo-seed-phrase-${wallet.address.slice(0, 8)}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   if (initialLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[80vh]">
@@ -144,6 +168,15 @@ export default function AccountCreatedPage() {
         <div className="mb-6">
           <div className="font-semibold text-white mb-1 text-center">Frase semilla:</div>
           <div className="bg-[#181818] text-white font-mono p-6 rounded break-words text-xl leading-7">{wallet.mnemonic}</div>
+          <Button
+            onClick={handleDownloadSeedPhrase}
+            className="mt-3 w-full bg-white/10 text-white font-semibold rounded-xl py-4 hover:bg-white/15 cursor-pointer select-none flex items-center justify-center gap-2"
+            type="button"
+            disabled={loading}
+          >
+            <Image src="/download.svg" alt="" width={18} height={18} unoptimized />
+            Descargar frase semilla
+          </Button>
         </div>
         
         <div className="space-y-3">

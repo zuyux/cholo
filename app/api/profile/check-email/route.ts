@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
         .limit(1),
       supabaseAdmin
         .from('connected_accounts')
-        .select('address, email')
+        .select('address, email, passkey')
         .ilike('email', trimmedEmail)
         .limit(1)
     ]);
@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
       inConnectedAccounts: Boolean(accountMatch),
       profileAddress: profileMatch?.address ?? null,
       accountAddress: accountMatch?.address ?? null,
+      hasPasskey: Boolean(accountMatch?.passkey),
     });
   } catch (error) {
     console.error('Email check error:', error);
