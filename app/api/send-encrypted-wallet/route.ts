@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Resend } from 'resend';
 import { encryptWalletData, validatePassword } from '@/lib/encryption';
+import { sendEmail } from '@/lib/email';
 import { encryptedWallets } from '@/lib/wallet-storage';
 import * as CryptoJS from 'crypto-js';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
@@ -71,34 +69,13 @@ export async function POST(request: NextRequest) {
     const recoveryLink = `${baseUrl}/auth/recover?token=${token}`;
     console.log('Recovery link created:', recoveryLink);
 
-    // Check if Resend API key is configured
-    if (!process.env.RESEND_API_KEY) {
-      console.error('RESEND_API_KEY not configured');
-      return NextResponse.json(
-        { error: 'Email service not configured' },
-        { status: 500 }
-      );
-    }
-
-    console.log('Sending email via Resend...');
-    console.log('From email:', process.env.RESEND_FROM_EMAIL);
+    console.log('Sending recovery email...');
     console.log('To email:', email);
-    console.log('API Key length:', process.env.RESEND_API_KEY?.length);
-    
-    // For Resend testing mode, emails can only be sent to the account owner's email
-    // In production with verified domain, this restriction is removed
-    const testingMode = process.env.RESEND_TESTING_MODE === 'true';
-    const toEmail = testingMode ? 'fabohax@gmail.com' : email;
-    
-    if (testingMode && email !== 'fabohax@gmail.com') {
-      console.log(`Testing mode: redirecting email from ${email} to fabohax@gmail.com`);
-    }
     
     // Send email with recovery link
-    const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
-      to: [toEmail],
-      subject: `Enlace de recuperación de la billetera CHOLO${testingMode && email !== toEmail ? ` (para ${email})` : ''}`,
+    const emailResult = await sendEmail({
+      to: email,
+      subject: 'Enlace de recuperación de la billetera CHOLO',
       html: `
         <!DOCTYPE html>
         <html>
@@ -115,15 +92,7 @@ export async function POST(request: NextRequest) {
           
           <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
             <h2 style="color: #2563eb; margin-top: 0;">Tu billetera cifrada está lista</h2>
-            
-            ${testingMode && email !== toEmail ? `
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;">
-              <p style="color: #856404; margin: 0; font-size: 14px;">
-                <strong>Modo de prueba:</strong> Este correo estaba destinado a ${email}, pero fue redirigido al propietario de la cuenta para realizar pruebas.
-              </p>
-            </div>
-            ` : ''}
-            
+
             <p>Tu billetera CHOLO fue cifrada de forma segura y está lista para recuperarse. Haz clic en el botón para acceder a ella:</p>
             
             <div style="text-align: center; margin: 30px 0;">
@@ -155,23 +124,11 @@ export async function POST(request: NextRequest) {
       `,
     });
 
-    if (error) {
-      console.error('Email sending error details:', {
-        message: error.message,
-        name: error.name,
-        fullError: JSON.stringify(error, null, 2)
-      });
-      return NextResponse.json(
-        { error: 'Failed to send recovery email', details: error.message },
-        { status: 500 }
-      );
-    }
-
-    console.log('Email sent successfully:', data?.id);
+    console.log('Email sent successfully:', emailResult.messageId);
     return NextResponse.json({
       success: true,
       message: 'Recovery email sent successfully',
-      emailId: data?.id
+      emailId: emailResult.messageId
     });
 
   } catch (error) {

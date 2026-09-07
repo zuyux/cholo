@@ -308,9 +308,9 @@ export default function HomePage() {
         <div className="cholo-shell mission-grid">
           <div className="rewards-copy">
             <p className="cholo-kicker">05 / Recompensas de la comunidad</p>
-            <h2 className="text-right">¿Quieres ganar<br/><span>1,000 $CHOLOs?</span></h2>
-            <span className="my-10 inline-block bg-white px-3 py-2 text-[#b7132f]">Sigue a la manada en X y participa por una recompensa de 1,000 $CHOLOs.</span>
-            <button className="cholo-button mission-button cursor-pointer" type="button" onClick={openRewardFlow}>Reclamar 1,000 $CHOLOs <ArrowUpRight size={15} /></button>
+            <h2 className="text-right">Sé parte de<br/><span>la manada</span></h2>
+            <span className="my-10 inline-block bg-white px-3 py-2 text-[#b7132f]">Autentica tus cuentas sociales para participar en posibles recompensas, sujetas a revisión manual.</span>
+            <button className="cholo-button mission-button cursor-pointer" type="button" onClick={openRewardFlow}>Conectar mis cuentas <ArrowUpRight size={15} /></button>
           </div>
           <div className="mission-list reward-social-list">
             <article><span>01</span><h3><b aria-hidden="true">𝕏</b> X</h3><a href="https://x.com/cholocoinmeme" target="_blank" rel="noreferrer">@cholocoinmeme <ArrowUpRight size={15} /></a></article>

@@ -23,7 +23,7 @@ const SATS_PER_BTC = 100_000_000;
 
 type ReceiveLayer = 'bitcoin';
 type ReceiveAsset = ReceiveLayer | 'stacks';
-type SendAsset = 'bitcoin' | 'sbtc';
+type SendAsset = 'cholo' | 'bitcoin' | 'sbtc';
 type ReceiveAddressPayload = {
   address: string;
   bitcoinAddress?: string;
@@ -72,18 +72,27 @@ const SEND_ASSETS: Array<{
   requiresExtension?: boolean;
 }> = [
   {
+    id: 'cholo',
+    label: 'CHOLO',
+    networkLabel: 'Stacks',
+    unit: 'CHOLO',
+    placeholder: 'SP...',
+    recipientHint: 'Use a Stacks mainnet address for CHOLO.',
+    supported: true,
+  },
+  {
     id: 'bitcoin',
     label: 'BTC',
     networkLabel: 'Bitcoin',
     unit: 'BTC',
     placeholder: 'bc1...',
     recipientHint: 'Use a Bitcoin L1 address.',
-    supported: true,
+    supported: false,
     requiresExtension: true,
   },
   {
     id: 'sbtc',
-    label: 'Stacks Network',
+    label: 'sBTC',
     networkLabel: 'Stacks',
     unit: 'sBTC',
     placeholder: 'SP3FBR2K...',
@@ -104,9 +113,7 @@ const formatCompactBalance = (value: number) => {
   if (!Number.isFinite(value)) {
     return '--';
   }
-  return value >= 1
-    ? value.toLocaleString(undefined, { maximumFractionDigits: 6 })
-    : value.toPrecision(4);
+  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
 const EMPTY_NATIVE_BALANCE: NativeBalance = {
@@ -126,17 +133,13 @@ const formatAssetCardBalance = (balance: NativeBalance) => {
   if (balance.display === 'Loading...') return balance.display;
   if (balance.value === null) return '--';
   if (balance.value === 0) return '0.00';
-  return balance.value >= 1
-    ? balance.value.toLocaleString(undefined, { maximumFractionDigits: 8 })
-    : balance.value.toLocaleString(undefined, { maximumFractionDigits: 8, minimumFractionDigits: 1 });
+  return formatCompactBalance(balance.value);
 };
 
 const formatStacksAssetCardBalance = (value: string | undefined) => {
   const parsed = Number(String(value ?? '0').replace(/,/g, ''));
   if (!Number.isFinite(parsed) || parsed === 0) return '0.00';
-  return parsed >= 1
-    ? parsed.toLocaleString(undefined, { maximumFractionDigits: 6, minimumFractionDigits: 2 })
-    : parsed.toLocaleString(undefined, { maximumFractionDigits: 6, minimumFractionDigits: 2 });
+  return formatCompactBalance(parsed);
 };
 
 function BalanceDisplay({
@@ -284,7 +287,7 @@ const formatLightningBalance = (balance: number, currency?: string) => {
     return '--';
   }
 
-  return `${sats.toLocaleString(undefined, { maximumFractionDigits: 0 })} sats`;
+  return `${sats.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} sats`;
 };
 
 class TimeoutError extends Error {
@@ -356,6 +359,7 @@ declare global {
 
 import { getApiUrl } from "@/lib/stacks-api";
 import { getPersistedNetwork, inferNetworkFromAddress, persistNetwork, type Network } from "@/lib/network";
+import { parseCholoAmount } from '@/lib/cholo-transfer';
 import { CHOLO_DECIMALS, getCholoAssetString, getSBTCContract } from "@/lib/contracts";
 import { getWalletErrorMessage, isWalletRequestCancelled } from '@/lib/walletErrors';
 import { sendSbtcDonation, sendSbtcDonationWithKey } from "@/lib/cholo-contract";
@@ -373,15 +377,12 @@ const formatCholoBalance = (rawBalance: string) => {
   try {
     const value = BigInt(rawBalance);
     const divisor = BigInt(10) ** BigInt(CHOLO_DECIMALS);
-    const whole = value / divisor;
-    const fraction = (value % divisor)
-      .toString()
-      .padStart(CHOLO_DECIMALS, '0')
-      .replace(/0+$/, '')
-      .slice(0, 4);
-    return `${whole.toLocaleString('en-US')}${fraction ? `.${fraction}` : ''}`;
+    const hundredths = (value * BigInt(100) + divisor / BigInt(2)) / divisor;
+    const whole = hundredths / BigInt(100);
+    const fraction = (hundredths % BigInt(100)).toString().padStart(2, '0');
+    return `${whole.toLocaleString('en-US')}.${fraction}`;
   } catch {
-    return '0';
+    return '0.00';
   }
 };
 import { fetchRecentTransactions } from "@/lib/fetchRecentTransactions";
@@ -422,7 +423,7 @@ export default function WalletPage() {
   const [assetsLoading, setAssetsLoading] = useState(true);
   const [btcAddress, setBtcAddress] = useState<string | null>(null);
   const [btcAddressLoading, setBtcAddressLoading] = useState(false);
-  const [btcAddressError, setBtcAddressError] = useState<string | null>(null);
+  const [, setBtcAddressError] = useState<string | null>(null);
   const [okxBitcoinAccounts, setOkxBitcoinAccounts] = useState<OkxBitcoinAccount[]>([]);
   const [selectedOkxBitcoinAddress, setSelectedOkxBitcoinAddress] = useState<string | null>(null);
   const [btcBalance, setBtcBalance] = useState<NativeBalance>(EMPTY_NATIVE_BALANCE);
@@ -455,7 +456,8 @@ export default function WalletPage() {
 
   // Modal states
   const [showReceive, setShowReceive] = useState(false);
-  const [receiveAsset, setReceiveAsset] = useState<ReceiveAsset>('bitcoin');
+  const [requestedReceiveAsset, setReceiveAsset] = useState<ReceiveAsset>('bitcoin');
+  const receiveAsset: ReceiveAsset = !btcAddress && !isBitcoinOnlyAccount ? 'stacks' : requestedReceiveAsset;
   const [showSend, setShowSend] = useState(false);
   const [showSwap, setShowSwap] = useState(false);
   const [sendTo, setSendTo] = useState("");
@@ -463,7 +465,7 @@ export default function WalletPage() {
   const [sendPassword, setSendPassword] = useState("");
   const [sendLoading, setSendLoading] = useState(false);
   const [sendMemo, setSendMemo] = useState("");
-  const [sendAsset, setSendAsset] = useState<SendAsset>('bitcoin');
+  const [sendAsset, setSendAsset] = useState<SendAsset>('cholo');
   const [extensionAvailable, setExtensionAvailable] = useState(false);
   const refreshStacksBalance = useCallback(() => setStacksBalanceRefreshKey((key) => key + 1), []);
   const refreshBtcBalance = useCallback(() => setBtcBalanceRefreshKey((key) => key + 1), []);
@@ -480,17 +482,23 @@ export default function WalletPage() {
   const parsedAmount = Number(sendAmount);
   const recipientError = (() => {
     if (!trimmedRecipient) return undefined;
-    if (sendAsset === 'sbtc' && !STACKS_ADDRESS_REGEX.test(trimmedRecipient)) {
-      return 'Enter a valid Stacks address for sBTC.';
+    if (sendAsset !== 'bitcoin' && !STACKS_ADDRESS_REGEX.test(trimmedRecipient)) {
+      return 'Enter a valid Stacks address.';
     }
     if (sendAsset === 'bitcoin' && !isValidBitcoinAddress(trimmedRecipient, currentNetwork)) {
       return currentNetwork === 'mainnet'
         ? 'Enter a valid Bitcoin mainnet address.'
         : 'Enter a valid Bitcoin testnet address.';
     }
+    if (sendAsset === 'cholo' && (currentNetwork !== 'mainnet' || !trimmedRecipient.startsWith('SP'))) return 'CHOLO requires a Stacks mainnet address.';
     return undefined;
   })();
-  const amountError = sendAmount
+  const choloRawBalance = assets.find((asset) => asset.id.toLowerCase() === CHOLO_ASSET_ID)?.rawBalance ?? '0';
+  const choloAmount = parseCholoAmount(sendAmount);
+  const amountError = sendAsset === 'cholo' && sendAmount
+    ? choloAmount === null ? 'Enter a CHOLO amount with up to 8 decimal places'
+      : choloAmount > BigInt(choloRawBalance) ? 'Insufficient CHOLO balance' : undefined
+    : sendAmount
     ? (!Number.isFinite(parsedAmount) || parsedAmount <= 0
       ? `Enter a valid ${selectedSendAsset.unit} amount`
       : sendAsset === 'sbtc' && (!Number.isInteger(parsedAmount) || parsedAmount < 1)
@@ -503,11 +511,11 @@ export default function WalletPage() {
     ? undefined
     : `${selectedSendAsset.label} sends need chain-specific signing and broadcasting support before they can be enabled.`;
   const isLocalWallet = walletType === 'imported';
-  const selectedAssetNeedsPassword = (sendAsset === 'sbtc' && !extensionAvailable) || (sendAsset === 'bitcoin' && isLocalWallet);
+  const selectedAssetNeedsPassword = (sendAsset !== 'bitcoin' && !extensionAvailable) || (sendAsset === 'bitcoin' && isLocalWallet);
   const selectedAssetCanUseCurrentSigner = sendAsset === 'bitcoin'
     ? !isLocalWallet || !!sendPassword
     : extensionAvailable || !!sendPassword;
-  const supportsMemo = sendAsset === 'sbtc';
+  const supportsMemo = sendAsset !== 'bitcoin';
   const memoByteLength = useMemo(() => new TextEncoder().encode(sendMemo || '').length, [sendMemo]);
   const memoError = supportsMemo && memoByteLength > MAX_MEMO_BYTES ? `Memo must be ${MAX_MEMO_BYTES} bytes or fewer` : undefined;
   const passwordError = selectedAssetNeedsPassword && sendPassword && sendPassword.length < 8
@@ -517,6 +525,7 @@ export default function WalletPage() {
     trimmedRecipient &&
     sendAmount &&
     selectedSendAsset.supported &&
+    (sendAsset !== 'cholo' || (currentNetwork === 'mainnet' && !loading && BigInt(assets.find((asset) => asset.id === 'stx')?.rawBalance ?? '0') > BigInt(0))) &&
     selectedAssetCanUseCurrentSigner &&
     !recipientError &&
     !amountError &&
@@ -528,9 +537,10 @@ export default function WalletPage() {
     if (sendAsset === 'bitcoin') {
       return btcBalance.value ?? 0;
     }
+    if (sendAsset === 'cholo') return Number(choloRawBalance) / 10 ** CHOLO_DECIMALS;
     const sanitized = Number(String(sbtcBalance).replace(/,/g, ''));
     return Number.isFinite(sanitized) ? sanitized : 0;
-  }, [btcBalance.value, sbtcBalance, sendAsset]);
+  }, [btcBalance.value, sbtcBalance, sendAsset, choloRawBalance]);
 
   const remainingBalanceValue = useMemo(() => {
     if (!availableBalanceValue || !parsedAmount) {
@@ -544,6 +554,12 @@ export default function WalletPage() {
     if (!availableBalanceValue || availableBalanceValue <= 0) {
       return [];
     }
+    if (sendAsset === 'cholo') {
+      return [25, 50, 75, 100].map((percent) => {
+        const raw = BigInt(choloRawBalance) * BigInt(percent) / BigInt(100);
+        return { label: percent === 100 ? 'All' : `${percent}%`, value: `${raw / BigInt(100000000)}.${(raw % BigInt(100000000)).toString().padStart(8, '0')}` };
+      });
+    }
     const options = [
       { label: '25%', value: formatQuickFillAmount(availableBalanceValue * 0.25) },
       { label: '50%', value: formatQuickFillAmount(availableBalanceValue * 0.5) },
@@ -551,13 +567,16 @@ export default function WalletPage() {
       { label: 'All', value: formatQuickFillAmount(availableBalanceValue) }
     ];
     return options.filter((option): option is { label: string; value: string } => Boolean(option.value));
-  }, [availableBalanceValue]);
+  }, [availableBalanceValue, sendAsset, choloRawBalance]);
 
-  const maxFillValue = useMemo(() => formatQuickFillAmount(availableBalanceValue), [availableBalanceValue]);
+  const maxFillValue = sendAsset === 'cholo'
+    ? `${BigInt(choloRawBalance) / BigInt(100000000)}.${(BigInt(choloRawBalance) % BigInt(100000000)).toString().padStart(8, '0')}`
+    : formatQuickFillAmount(availableBalanceValue);
 
   const getSendAssetBalanceDisplay = useCallback((asset: SendAsset) => {
+    if (asset === 'cholo') return `${formatCholoBalance(choloRawBalance)} CHOLO`;
     if (asset === 'bitcoin') {
-      return btcBalance.display;
+      return `${formatAssetCardBalance(btcBalance)} BTC`;
     }
     if (asset === 'sbtc') {
       if (sbtcBalance === '--') return '--';
@@ -566,7 +585,7 @@ export default function WalletPage() {
     }
     const unit = SEND_ASSETS.find((sendAssetOption) => sendAssetOption.id === asset)?.unit ?? '';
     return `0.00${unit ? ` ${unit}` : ''}`;
-  }, [btcBalance.display, sbtcBalance]);
+  }, [btcBalance, sbtcBalance, choloRawBalance]);
   const selectedAssetBalanceDisplay = getSendAssetBalanceDisplay(sendAsset);
   const selectedAssetBalanceLoading = sendAsset === 'bitcoin' ? btcBalanceLoading : loading;
   const selectedAssetBalanceUnavailable = !selectedAssetBalanceLoading && (
@@ -594,7 +613,7 @@ export default function WalletPage() {
   const primaryBalanceDisplay = isNostrLightningAccount
     ? lightningBalance.display
     : isBitcoinOnlyAccount
-      ? btcBalance.display
+      ? `${btcBalanceDisplay} BTC`
       : choloBalanceDisplay;
   const primaryBalanceLoading = isNostrLightningAccount
     ? lightningBalance.status === 'loading'
@@ -622,7 +641,7 @@ export default function WalletPage() {
     setSendAmount("");
     setSendPassword("");
     setSendMemo("");
-    setSendAsset('bitcoin');
+    setSendAsset('cholo');
   };
 
   const closeSendModal = () => {
@@ -900,7 +919,7 @@ export default function WalletPage() {
   }, [sendLoading]);
 
   const sendMethodTitle = selectedSendAsset.supported
-    ? `Sending ${selectedSendAsset.label} ${sendAsset === 'bitcoin' && !isLocalWallet || extensionAvailable && sendAsset === 'sbtc' ? 'with Extension' : 'with Local Wallet'}`
+    ? `Sending ${selectedSendAsset.label} ${sendAsset === 'bitcoin' && !isLocalWallet || extensionAvailable && sendAsset !== 'bitcoin' ? 'with Extension' : 'with Local Wallet'}`
     : `${selectedSendAsset.label} selected`;
   const sendMethodDescription = selectedSendAsset.supported
     ? (sendAsset === 'bitcoin' && isLocalWallet
@@ -1165,7 +1184,7 @@ export default function WalletPage() {
       return;
     }
 
-    if (sendAsset !== 'sbtc' && sendAsset !== 'bitcoin') {
+    if (!selectedSendAsset.supported) {
       toast.error(unsupportedSendAssetMessage || 'This asset is not supported for sending yet.');
       return;
     }
@@ -1220,20 +1239,21 @@ export default function WalletPage() {
         return;
       }
 
-      const sbtcAmount = BigInt(amountInSats);
+      const sbtcAmount = sendAsset === 'cholo' ? parseCholoAmount(sendAmount)! : BigInt(amountInSats);
 
       if (extensionAvailable) {
         try {
           await sendSbtcDonation({
+            token: sendAsset === 'cholo' ? 'cholo' : 'sbtc',
             amount: sbtcAmount,
             senderAddress: address,
             recipientAddress: recipient,
             memo: memoPayload,
             onFinish: (txId) => {
-              toast.success(`sBTC transfer sent! TXID: ${txId}`);
+              toast.success(`${selectedSendAsset.unit} transfer sent! TXID: ${txId}`);
             },
             onCancel: () => {
-              toast('sBTC transfer cancelled');
+              toast(`${selectedSendAsset.unit} transfer cancelled`);
             },
           });
           closeSendModal();
@@ -1253,20 +1273,21 @@ export default function WalletPage() {
       if (!wallet || !wallet.privateKey) throw new Error("Invalid password or wallet not found");
 
       const txId = await sendSbtcDonationWithKey({
-        amount: sbtcAmount,
+        token: sendAsset === 'cholo' ? 'cholo' : 'sbtc',
+            amount: sbtcAmount,
         senderAddress: wallet.address,
         recipientAddress: recipient,
         memo: memoPayload,
         privateKey: wallet.privateKey,
       });
 
-      toast.success(`sBTC transfer sent! TXID: ${txId}`);
+      toast.success(`${selectedSendAsset.unit} transfer sent! TXID: ${txId}`);
       closeSendModal();
     } catch (err: unknown) {
       if (err instanceof Error) {
-        toast.error(err.message || 'Error sending sBTC');
+        toast.error(err.message || 'Error sending token');
       } else {
-        toast.error("Error sending sBTC");
+        toast.error("Error sending token");
       }
     } finally {
       setSendLoading(false);
@@ -1726,7 +1747,7 @@ export default function WalletPage() {
                     <div className="text-xs text-muted-foreground">{asset.name}</div>
                   </div>
                   <div className="text-right">
-                    <div className="font-mono text-sm">{asset.formattedBalance}</div>
+                    <div className="font-mono text-sm">{formatStacksAssetCardBalance(asset.formattedBalance)}</div>
                     <div className="text-[11px] uppercase text-muted-foreground">
                       {asset.type === "stx" ? "Stacks" : "Token"}
                     </div>
@@ -1795,7 +1816,7 @@ export default function WalletPage() {
                   onChange={(event) => setSendAsset(event.target.value as SendAsset)}
                   disabled={sendLoading}
                 >
-                  {SEND_ASSETS.map((asset) => (
+                  {SEND_ASSETS.filter((asset) => asset.supported).map((asset) => (
                     <option key={asset.id} value={asset.id}>
                       {asset.label} - {getSendAssetBalanceDisplay(asset.id)}
                     </option>
@@ -1805,6 +1826,8 @@ export default function WalletPage() {
 
               <div className="rounded-xl border border-border bg-transparent p-4 text-sm">
                 <p className="font-medium">{sendMethodTitle}</p>
+                {sendAsset !== 'bitcoin' && <p className="mt-2 text-sm">La comisión de red se paga en STX. Necesitas saldo STX para enviar.</p>}
+                {sendAsset === 'cholo' && currentNetwork !== 'mainnet' && <p>CHOLO solo está disponible en mainnet.</p>}
                 <p className="text-muted-foreground mt-1 text-xs leading-relaxed">{sendMethodDescription}</p>
                 <p className="mt-3 text-xs text-muted-foreground">
                   <LocalizedText>Available balance:
@@ -1882,7 +1905,7 @@ export default function WalletPage() {
                   </LocalizedText></button>
                 </div>
                 <div className="flex items-center justify-between text-xs mt-2 text-muted-foreground">
-                  <span>{sendAsset === "sbtc" ? "Minimum 1 sat" : "Amount in BTC"}</span>
+                  <span>{sendAsset === "sbtc" ? "Minimum 1 sat" : `Amount in ${selectedSendAsset.unit}`}</span>
                   <span className="inline-flex items-center gap-1">
                     <LocalizedText>Available
                     </LocalizedText><BalanceDisplay
@@ -1968,7 +1991,7 @@ export default function WalletPage() {
                   )}
                   <div className="flex items-center justify-between text-xs text-muted-foreground mt-3">
                     <span><LocalizedText>Method</LocalizedText></span>
-                    <span>{sendAsset === "bitcoin" && !isLocalWallet || extensionAvailable && sendAsset === "sbtc" ? "Browser extension" : "Encrypted wallet"}</span>
+                    <span>{sendAsset === "bitcoin" && !isLocalWallet || extensionAvailable && sendAsset !== "bitcoin" ? "Browser extension" : "Encrypted wallet"}</span>
                   </div>
                 </div>
               )}
@@ -1999,7 +2022,7 @@ export default function WalletPage() {
                 className="w-full py-3 px-4 rounded-xl border border-border bg-transparent text-foreground transition-all duration-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-muted"
                 disabled={sendLoading || !sendFormValid}
               >
-                {sendLoading ? (sendAsset === "bitcoin" && !isLocalWallet || extensionAvailable && sendAsset === "sbtc" ? "Sending via extension..." : "Sending...") : sendActionLabel}
+                {sendLoading ? (sendAsset === "bitcoin" && !isLocalWallet || extensionAvailable && sendAsset !== "bitcoin" ? "Sending via extension..." : "Sending...") : sendActionLabel}
               </button>
             </form>
           </div>
@@ -2049,16 +2072,7 @@ export default function WalletPage() {
                   ) : (
                     <>
                       <div className="text-sm"><LocalizedText>No </LocalizedText>{selectedReceiveLabel} <LocalizedText>address yet</LocalizedText></div>
-                      {receiveAsset !== "stacks" && !isBitcoinOnlyAccount && (
-                        <button
-                          type="button"
-                          className="rounded-lg border border-border bg-transparent px-4 py-2 text-xs font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                          onClick={() => openGenerateAddressModal(receiveAsset)}
-                          disabled={generatingAddresses}
-                        >
-                          <LocalizedText>Generate </LocalizedText>{selectedReceiveLabel} <LocalizedText>Address
-                        </LocalizedText></button>
-                      )}
+
                     </>
                   )}
                 </div>
@@ -2110,7 +2124,7 @@ export default function WalletPage() {
                     );
                   })}
                 </div>
-              ) : (
+              ) : primaryReceiveAddress ? (
               <div
                 role="button"
                 tabIndex={0}
@@ -2120,19 +2134,7 @@ export default function WalletPage() {
               >
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <span className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground"><LocalizedText>Bitcoin L1</LocalizedText></span>
-                  {!btcAddressLoading && !primaryReceiveAddress && !isBitcoinOnlyAccount && (
-                    <button
-                      type="button"
-                      className="rounded-lg border h-full border-border bg-transparent px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openGenerateAddressModal('bitcoin');
-                      }}
-                      disabled={generatingAddresses}
-                    >
-                      <LocalizedText>Generate
-                    </LocalizedText></button>
-                  )}
+
                 </div>
                 {btcAddressLoading ? (
                   <div className="text-sm"><LocalizedText>Loading address...</LocalizedText></div>
@@ -2151,11 +2153,9 @@ export default function WalletPage() {
                       <Copy size={18} />
                     </button>
                   </div>
-                ) : (
-                  <div className="text-sm text-destructive">{btcAddressError || "No Bitcoin address available."}</div>
-                )}
+                ) : null}
               </div>
-              )}
+              ) : null}
 
               {!isBitcoinOnlyAccount && (
               <div className="grid gap-3 text-left">
@@ -2184,6 +2184,16 @@ export default function WalletPage() {
                 </div>
 
               </div>
+              )}
+              {!primaryReceiveAddress && !isBitcoinOnlyAccount && (
+                <button
+                  type="button"
+                  className="rounded-lg border border-border bg-transparent px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => openGenerateAddressModal('bitcoin')}
+                  disabled={generatingAddresses || btcAddressLoading}
+                >
+                  Generar dirección Bitcoin
+                </button>
               )}
             </div>
           </div>

@@ -1,16 +1,19 @@
+import { isRewardEligible, REWARD_TERMS_VERSION } from '@/lib/rewardEligibility';
 import { createHash, randomBytes } from 'crypto';
+import { RewardAccountAlreadyLinkedError } from '@/lib/rewardErrors';
 import { supabaseAdmin } from '@/lib/supabaseClient';
 import type { RewardClaimStatus } from '@/lib/rewardEvents';
 import { decryptRewardToken, encryptRewardToken, isEncryptedRewardToken } from '@/lib/rewardTokenEncryption';
 
-export const X_SCOPES = 'tweet.read users.read follows.read follows.write offline.access';
+export const X_SCOPES = 'tweet.read users.read';
 export const CHOLO_X_USERNAME = process.env.X_CHOLO_USERNAME || 'cholocoinmeme';
 export const CHOLO_X_USER_ID = process.env.X_CHOLO_USER_ID || '1945221268137009152';
-export const REWARD_TERMS_VERSION = '2026-07-30';
-const REWARD_COLUMNS = 'address,x_user_id,x_username,x_access_token,x_refresh_token,x_token_expires_at,x_connected,x_following,claimed,terms_accepted_at,terms_version';
+export { REWARD_TERMS_VERSION } from '@/lib/rewardEligibility';
+const REWARD_COLUMNS = 'address,instagram_connected,instagram_username,x_user_id,x_username,x_access_token,x_refresh_token,x_token_expires_at,x_connected,x_following,claimed,terms_accepted_at,terms_version';
 
 export type RewardRow = {
   address: string;
+  instagram_connected?: boolean; instagram_username?: string | null;
   x_user_id: string | null; x_username: string | null; x_access_token: string | null;
   x_refresh_token: string | null; x_token_expires_at: string | null;
   x_connected: boolean; x_following: boolean; claimed: boolean;
@@ -19,8 +22,9 @@ export type RewardRow = {
 
 export function toStatus(row: Partial<RewardRow> | null): RewardClaimStatus {
   return {
+    instagram: { connected: !!row?.instagram_connected, username: row?.instagram_username || undefined },
     x: { connected: !!row?.x_connected, following: !!row?.x_following, username: row?.x_username || undefined },
-    eligible: !!row?.x_following,
+    eligible: isRewardEligible(row),
     claimed: !!row?.claimed,
     termsAccepted: !!row?.terms_accepted_at && row.terms_version === REWARD_TERMS_VERSION,
   };
@@ -50,6 +54,10 @@ export async function saveReward(address: string, values: Record<string, unknown
   if (typeof protectedValues.x_access_token === 'string') protectedValues.x_access_token = encryptRewardToken(protectedValues.x_access_token);
   if (typeof protectedValues.x_refresh_token === 'string') protectedValues.x_refresh_token = encryptRewardToken(protectedValues.x_refresh_token);
   const { data, error } = await supabaseAdmin.from('reward_claims').upsert({ address, ...protectedValues, updated_at: new Date().toISOString() }, { onConflict: 'address' }).select(REWARD_COLUMNS).single();
+  if (error?.code === '23505') {
+    if (error.message.includes('reward_claims_x_user_id_key')) throw new RewardAccountAlreadyLinkedError();
+    if (error.message.includes('reward_claims_instagram_user_id_key')) throw new RewardAccountAlreadyLinkedError('instagram');
+  }
   if (error) throw new Error(`Supabase rewards: ${error.message}`);
   const row = data as RewardRow;
   return {
@@ -57,46 +65,6 @@ export async function saveReward(address: string, values: Record<string, unknown
     x_access_token: decryptRewardToken(row.x_access_token),
     x_refresh_token: decryptRewardToken(row.x_refresh_token),
   };
-}
-
-export async function getValidXAccessToken(address: string, reward: RewardRow, forceRefresh = false) {
-  const expiresAt = reward.x_token_expires_at ? Date.parse(reward.x_token_expires_at) : 0;
-  const expiresSoon = !expiresAt || expiresAt <= Date.now() + 60_000;
-
-  if (!forceRefresh && reward.x_access_token && !expiresSoon) return reward.x_access_token;
-  if (!reward.x_refresh_token) {
-    if (!forceRefresh && reward.x_access_token) return reward.x_access_token;
-    throw new Error('Tu sesión de X expiró. Vuelve a autenticar tu cuenta de X.');
-  }
-
-  const { clientId, clientSecret } = xClientConfig();
-  const tokenResponse = await fetch('https://api.x.com/2/oauth2/token', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      refresh_token: reward.x_refresh_token,
-      grant_type: 'refresh_token',
-      client_id: clientId,
-    }),
-    cache: 'no-store',
-  });
-  const token = await tokenResponse.json().catch(() => ({}));
-
-  if (!tokenResponse.ok || !token.access_token) {
-    throw new Error('Tu sesión de X expiró. Vuelve a autenticar tu cuenta de X.');
-  }
-
-  await saveReward(address, {
-    x_access_token: token.access_token,
-    x_refresh_token: token.refresh_token || reward.x_refresh_token,
-    x_token_expires_at: new Date(Date.now() + Number(token.expires_in || 7200) * 1000).toISOString(),
-    x_connected: true,
-  });
-
-  return token.access_token as string;
 }
 
 export function createPkce() {

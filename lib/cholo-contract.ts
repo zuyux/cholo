@@ -25,7 +25,7 @@ import {
 import { STACKS_TESTNET, STACKS_MAINNET } from '@stacks/network';
 import { getPersistedNetwork, type Network } from './network';
 import { getApiUrl } from './stacks-api';
-import { getSbtcAssetString, getSBTCContract } from './contracts';
+import { getCholoAssetString, getSbtcAssetString, getSBTCContract } from './contracts';
 
 // CHOLO Contract addresses per network
 const CHOLO_CONTRACTS = {
@@ -459,7 +459,15 @@ export async function approveAppOnChain(
   });
 }
 
+function getCholoTransferContract(): string {
+  if (getPersistedNetwork() !== 'mainnet') {
+    throw new Error('CHOLO transfers are only available on mainnet.');
+  }
+  return getCholoAssetString().split('::')[0];
+}
+
 type SendSbtcDonationOptions = {
+  token?: 'sbtc' | 'cholo';
   amount: bigint;
   senderAddress: string;
   recipientAddress: string;
@@ -483,7 +491,7 @@ export async function sendSbtcDonation(options: SendSbtcDonationOptions): Promis
 
   const network = getStacksNetwork();
   const resolvedNetwork = getPersistedNetwork();
-  const contractId = getSBTCContract();
+  const contractId = options.token === 'cholo' ? getCholoTransferContract() : getSBTCContract();
   const { contractAddress, contractName } = parseContractAddress(contractId);
   const memoCV = memo && memo.length > 0 ? someCV(bufferCVFromString(memo.slice(0, 34))) : noneCV();
   const functionArgs = [
@@ -498,7 +506,7 @@ export async function sendSbtcDonation(options: SendSbtcDonationOptions): Promis
     address: 'origin',
     condition: 'eq',
     amount: amount.toString(),
-    asset: getSbtcAssetString() as `${string}.${string}::${string}`,
+    asset: (options.token === 'cholo' ? getCholoAssetString() : getSbtcAssetString()) as `${string}.${string}::${string}`,
   };
 
   if (typeof window !== 'undefined' && (window as Window & { LeatherProvider?: { request: (method: string, params: Record<string, unknown>) => Promise<{ result?: { txid?: string } }> } }).LeatherProvider) {
@@ -540,8 +548,10 @@ export async function sendSbtcDonation(options: SendSbtcDonationOptions): Promis
         return;
       }
 
+      if (options.token === 'cholo') throw new Error('Wallet returned without a transaction ID. Check your wallet before retrying.');
       console.warn('⚠️ Leather RPC returned without txid, falling back to Connect');
     } catch (error) {
+      if (options.token === 'cholo') throw error;
       console.error('❌ Leather RPC donation failed, falling back to Connect:', error);
     }
   }
@@ -582,6 +592,8 @@ type SendSbtcDonationWithKeyOptions = SendSbtcDonationOptions & {
 export async function sendSbtcDonationWithKey(options: SendSbtcDonationWithKeyOptions): Promise<string> {
   const { privateKey, onFinish, onCancel, ...baseOptions } = options;
   const { amount, senderAddress, recipientAddress, memo } = baseOptions;
+  if (amount <= BigInt(0)) throw new Error('Transfer amount must be greater than zero');
+  if (!senderAddress || !recipientAddress) throw new Error('Sender and recipient addresses are required');
 
   if (!privateKey) {
     throw new Error('Missing private key for internal donation');
@@ -592,7 +604,7 @@ export async function sendSbtcDonationWithKey(options: SendSbtcDonationWithKeyOp
   }
 
   const network = getStacksNetwork();
-  const sbtcContractId = getSBTCContract();
+  const sbtcContractId = options.token === 'cholo' ? getCholoTransferContract() : getSBTCContract();
   const { contractAddress, contractName } = parseContractAddress(sbtcContractId);
   const memoCV = memo && memo.length > 0 ? someCV(bufferCVFromString(memo.slice(0, 34))) : noneCV();
 
@@ -606,8 +618,14 @@ export async function sendSbtcDonationWithKey(options: SendSbtcDonationWithKeyOp
       standardPrincipalCV(recipientAddress),
       memoCV,
     ],
-    postConditionMode: PostConditionMode.Allow,
-    postConditions: [],
+    postConditionMode: PostConditionMode.Deny,
+    postConditions: [{
+      type: 'ft-postcondition',
+      address: senderAddress,
+      condition: 'eq',
+      amount: amount.toString(),
+      asset: (options.token === 'cholo' ? getCholoAssetString() : getSbtcAssetString()) as `${string}.${string}::${string}`,
+    }],
     senderKey: privateKey,
     network,
   });

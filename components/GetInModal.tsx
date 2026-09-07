@@ -164,6 +164,16 @@ export default function GetInModal({ onClose }: { onClose?: () => void }) {
         };
         await createEncryptedWallet(walletData, password);
         persistGeneratedWalletSession(address);
+        if (googleAccount) {
+          localStorage.setItem('cholo_session', JSON.stringify({
+            address,
+            walletType: 'imported',
+            provider: 'google',
+            email: googleAccount.email,
+            connectedAt: Date.now(),
+          }));
+          window.dispatchEvent(new Event('cholo-session-update'));
+        }
 
         const encryptedSnapshot = getStoredEncryptedWallet();
         if (!encryptedSnapshot) {

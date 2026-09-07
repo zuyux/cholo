@@ -19,7 +19,7 @@ export default function WelcomePage() {
         <p className="cholo-kicker mb-3">Bienvenido a CHOLO</p>
         <h1 className="mb-4 text-3xl font-bold text-[#faeed5]">Cuenta lista</h1>
         <p className="mb-6 text-sm leading-6 text-[#bba58d]">
-          Tu sesión ya está autenticada. Puedes revisar tu recompensa de bienvenida o continuar a tu billetera.
+          Tu sesión ya está autenticada. Puedes conectar tus cuentas para posibles recompensas o continuar a tu billetera.
         </p>
         <Button asChild className="h-12 w-full bg-[#b7132f] text-[#faeed5] hover:bg-[#830c22]">
           <Link href="/wallet">

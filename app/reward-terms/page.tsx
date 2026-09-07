@@ -3,42 +3,42 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Términos y condiciones de recompensa | $CHOLO",
-  description: "Condiciones aplicables al programa de recompensa de bienvenida de $CHOLO.",
+  description: "Condiciones aplicables al programa de posibles recompensas de $CHOLO.",
 };
 
 const sections = [
   {
     title: "1. Aceptación",
     paragraphs: [
-      "Estos Términos y condiciones de recompensa regulan tu participación en el programa de bienvenida de CHOLO (el \"Programa\"). Al conectar una billetera, autenticar tu cuenta de X o solicitar la recompensa, confirmas que has leído y aceptas estas condiciones, además de los Términos de servicio y la Política de privacidad de CHOLO.",
+      "Estos Términos y condiciones de recompensa regulan tu participación en el programa de participación de CHOLO (el \"Programa\"). Al conectar una billetera, autenticar tu cuenta de X o Instagram y aceptar expresamente estos términos, confirmas que has leído y aceptas estas condiciones, además de los Términos de servicio y la Política de privacidad de CHOLO.",
       "Si no aceptas estas condiciones, no participes en el Programa.",
     ],
   },
   {
     title: "2. Elegibilidad",
     paragraphs: [
-      "Para participar debes tener capacidad legal para aceptar estas condiciones en tu jurisdicción, controlar una billetera compatible y una cuenta válida de X, y no estar sujeto a una prohibición legal aplicable. El Programa es nulo donde esté prohibido o restringido por ley.",
+      "Para participar debes tener capacidad legal para aceptar estas condiciones en tu jurisdicción, controlar una billetera compatible y una cuenta válida de X o una cuenta de Instagram compatible con su autenticación oficial, y no estar sujeto a una prohibición legal aplicable. El Programa es nulo donde esté prohibido o restringido por ley.",
       "No se requiere una compra. El acceso a internet, una billetera compatible y el uso de servicios de terceros pueden estar sujetos a sus propios costos o condiciones.",
     ],
   },
   {
-    title: "3. Cómo obtener la recompensa",
+    title: "3. Cómo participar",
     paragraphs: [
-      "Durante la vigencia del Programa debes conectar tu billetera a CHOLO, autenticar una cuenta de X, seguir la cuenta oficial @cholocoinmeme y completar la solicitud mediante la interfaz de recompensa.",
-      "La verificación depende de la información disponible a través de X. Las cuentas privadas, restricciones de la plataforma, demoras, revocaciones de permisos o fallas de terceros pueden impedir o retrasar la comprobación automática.",
+      "Durante la vigencia del Programa debes conectar tu billetera a CHOLO, aceptar estos términos y autenticar al menos una cuenta de X o Instagram. Los enlaces a @cholocoinmeme y @cholocoin permiten seguir a la comunidad de forma opcional; no verificamos el seguimiento ni lo exigimos para participar.",
+      "La autenticación depende de X e Instagram. Instagram admite cuentas de creador o empresa mediante su integración oficial. Restricciones, revocaciones de permisos o fallas de terceros pueden impedir o retrasar la conexión. Puedes participar con cualquiera de las dos plataformas.",
     ],
   },
   {
     title: "4. Recompensa y distribución",
     paragraphs: [
-      "Cada solicitud elegible puede recibir 1,000 $CHOLOs, sujeto a verificación, disponibilidad y estas condiciones. La interfaz registra una solicitud aprobada; ese registro no garantiza una transferencia inmediata ni una fecha específica de distribución.",
+      "Autenticar una cuenta registra tu perfil como elegible para evaluación de posibles recompensas. No constituye una aprobación, un derecho a recibir tokens ni una promesa de monto o fecha. CHOLO revisa y selecciona a los participantes manualmente según las condiciones y disponibilidad de cada convocatoria. No hay reclamos ni distribuciones automáticas.",
       "La distribución puede requerir comprobaciones adicionales y puede demorarse por mantenimiento, congestión de red, comisiones, incidentes técnicos o causas fuera del control razonable de CHOLO. $CHOLO es un token cultural y experimental; la recompensa no representa dinero en efectivo, una inversión ni una promesa de valor o rendimiento.",
     ],
   },
   {
     title: "5. Límite y prevención de abuso",
     paragraphs: [
-      "Se permite una sola recompensa por persona, billetera y cuenta de X. No puedes participar mediante identidades, cuentas o billeteras duplicadas; automatización; información falsa; suplantación; manipulación de verificaciones; ni cualquier otro método diseñado para eludir el límite.",
+      "Se permite un solo perfil participante por persona y billetera; cada cuenta social autenticada solo puede vincularse a una billetera. No puedes participar mediante identidades, cuentas o billeteras duplicadas; automatización; información falsa; suplantación; manipulación de verificaciones; ni cualquier otro método diseñado para eludir el límite.",
       "CHOLO puede revisar, rechazar, suspender o anular solicitudes razonablemente asociadas con fraude, abuso, errores técnicos, incumplimiento de estas condiciones o actividad ilícita. También puede solicitar evidencia razonable de control de la billetera o cuenta vinculada, sin pedir nunca tu frase semilla ni clave privada.",
     ],
   },
@@ -52,7 +52,7 @@ const sections = [
   {
     title: "7. Servicios de terceros",
     paragraphs: [
-      "X, proveedores de billeteras, Stacks, Bitcoin y otros servicios relacionados son operados por terceros y se rigen por sus propias condiciones. CHOLO no controla su disponibilidad, decisiones, cambios de API, suspensiones de cuentas ni interrupciones.",
+      "X, Instagram, proveedores de billeteras, Stacks, Bitcoin y otros servicios relacionados son operados por terceros y se rigen por sus propias condiciones. CHOLO no controla su disponibilidad, decisiones, cambios de API, suspensiones de cuentas ni interrupciones.",
     ],
   },
   {
@@ -65,7 +65,7 @@ const sections = [
   {
     title: "9. Privacidad",
     paragraphs: [
-      "Para operar y verificar el Programa, CHOLO procesa la dirección pública de tu billetera, el identificador y nombre de usuario de X, credenciales OAuth, estado de seguimiento y registros de solicitud. Consulta la Política de privacidad para obtener más información sobre el uso, conservación y protección de estos datos.",
+      "Para operar y verificar el Programa, CHOLO procesa la dirección pública de tu billetera, los identificadores y nombres de usuario de las cuentas autenticadas de X o Instagram y los registros de aceptación. Las credenciales OAuth se utilizan para comprobar la identidad durante la conexión. Consulta la Política de privacidad para obtener más información sobre el uso, conservación y protección de estos datos.",
     ],
   },
   {
@@ -87,13 +87,13 @@ export default function RewardTermsPage() {
             Términos y condiciones de recompensa
           </h1>
           <p className="mt-6 text-sm uppercase tracking-[0.12em] text-[#a38870]">
-            Vigentes desde el 30 de julio de 2026
+            Vigentes desde el 5 de septiembre de 2026
           </p>
         </header>
 
         <div className="mt-12 max-w-3xl space-y-12">
           <p className="border-l-4 border-[#b7132f] pl-6 text-lg leading-8 text-[#c8b39a]">
-            Estas condiciones explican quién puede participar y cómo funciona la recompensa de bienvenida de 1,000 $CHOLOs.
+            Estas condiciones explican quién puede participar y cómo funciona el programa de posibles recompensas, sujeto a revisión manual.
           </p>
 
           {sections.map((section) => (

@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import React, { useEffect, useRef, useState } from 'react';
+import { ProfileProviderLogos } from '@/components/ProfileProviderLogos';
 import { Camera, LoaderCircle, User } from 'lucide-react';
 import { useWallet } from '@/components/WalletProvider';
 import { getProfile, Profile } from '@/lib/profileApi';
@@ -237,6 +238,7 @@ export default function AddressPage() {
           )}
           {savingUsername && <LoaderCircle className='ml-2 animate-spin text-[#777]' size={16} />}
         </div>
+        {isOwner && <ProfileProviderLogos key={address} address={address} />}
         <p>{isOwner && <span className="text-green-500 font-semibold select-none">•</span>}</p>
         <Link
           href='/#gallery'

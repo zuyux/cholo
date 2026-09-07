@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     console.log('🔗 Connection URL created:', connectionUrl);
 
-    // Send email using Resend
+    // Send email using the shared mail transport
     try {
       console.log('� Sending connection email...');
       const emailTemplate = emailTemplates.walletConnectionLink(connectionUrl);

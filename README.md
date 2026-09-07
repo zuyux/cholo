@@ -82,3 +82,28 @@ mundo.
 
 Los recursos de código abierto asociados al proyecto se distribuyen bajo la
 [GNU General Public License v3.0](LICENSE).
+
+### Social authentication for potential rewards
+
+Participants accept the current terms and authenticate either X or Instagram.
+Following is optional via external links. Eligibility indicates a profile may be
+reviewed manually; it does not approve or distribute a reward. The legacy claim
+and API-follow endpoints return HTTP 410. Existing claim history is preserved.
+
+Before enabling Instagram, apply
+`supabase/migrations/20260905000000_add_instagram_reward_identity.sql` and configure:
+
+- `INSTAGRAM_CLIENT_ID`: Instagram app ID from the Meta app dashboard.
+- `INSTAGRAM_CLIENT_SECRET`: Instagram app secret (server only).
+- `INSTAGRAM_REDIRECT_URI`: `https://cholo.meme/api/rewards/connect/instagram/callback`
+  (register the exact URL in the Meta app dashboard).
+
+Enable Instagram API with Instagram Login and the `instagram_business_basic`
+permission. Complete Meta's required access/review setup before onboarding public
+users. Instagram supports Creator/Business accounts; personal-account users can
+participate with X. If credentials are absent, the modal explains that Instagram
+is unavailable. OAuth tokens are used for identity lookup and are not retained
+by new connections. X now requests only `tweet.read users.read`; no follow or
+offline access is requested.
+
+References: https://www.postman.com/meta/instagram/folder/1z5vxzu/instagram-api-with-instagram-login

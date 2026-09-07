@@ -8,6 +8,7 @@ export interface RewardSocialStatus {
 
 export interface RewardClaimStatus {
   x: RewardSocialStatus;
+  instagram?: { connected: boolean; username?: string };
   eligible: boolean;
   claimed: boolean;
   termsAccepted: boolean;

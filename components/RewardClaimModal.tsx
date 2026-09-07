@@ -12,9 +12,10 @@ import { consumeQueuedWelcomeModalAddress, useWallet, WELCOME_MODAL_AFTER_SIGN_I
 import { useEncryptedWallet } from './EncryptedWalletProvider';
 import { OPEN_REWARD_CLAIM_EVENT, type RewardClaimStatus } from '@/lib/rewardEvents';
 import { authenticateRewardWallet } from '@/lib/rewardAuthClient';
+import { getRewardCallbackMessage } from '@/lib/rewardErrors';
 import { requestLeatherStacksSignIn, requestXverseStacksSignIn } from '@/lib/stacksSignInMessage';
 
-const REWARD_TERMS_VERSION = '2026-07-30';
+import { REWARD_TERMS_VERSION } from '@/lib/rewardEligibility';
 const EMPTY_STATUS: RewardClaimStatus = { x: { connected: false, following: false }, eligible: false, claimed: false, termsAccepted: false };
 const SOCIALS = {
   x: { label: 'X', account: '@cholocoinmeme', followUrl: 'https://x.com/cholocoinmeme' },
@@ -28,9 +29,8 @@ export default function RewardClaimModal() {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<RewardClaimStatus>(EMPTY_STATUS);
   const [checking, setChecking] = useState(false);
-  const [claiming, setClaiming] = useState(false);
-  const [followingX, setFollowingX] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [callbackError, setCallbackError] = useState<string | null>(null);
   const [acceptingTerms, setAcceptingTerms] = useState(false);
 
   const signWithLocalWallet = useCallback(async (message: string) => {
@@ -66,6 +66,7 @@ export default function RewardClaimModal() {
 
   const loadStatus = useCallback(async (walletAddress: string, verify = false) => {
     setChecking(true); setMessage(null);
+    setStatus(EMPTY_STATUS);
     try {
       if (verify) {
         await ensureRewardSession(walletAddress);
@@ -73,6 +74,9 @@ export default function RewardClaimModal() {
       const response = await fetch(`/api/rewards/social-status${verify ? '?verify=true' : ''}`, { cache: 'no-store' });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'No se pudo comprobar tus cuentas');
+      if (payload.address?.toLowerCase() !== walletAddress.toLowerCase()) {
+        throw new Error('Comprueba nuevamente la propiedad de tu billetera para ver tus cuentas.');
+      }
       setStatus(payload);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo comprobar tus cuentas'); }
     finally { setChecking(false); }
@@ -91,10 +95,14 @@ export default function RewardClaimModal() {
     const queuedAddress = consumeQueuedWelcomeModalAddress();
     if (queuedAddress) show(new CustomEvent('queued', { detail: { address: queuedAddress } }));
     const callbackUrl = new URL(window.location.href);
-    if (callbackUrl.searchParams.get('rewardXConnected') === 'true' && address) {
+    const rewardError = callbackUrl.searchParams.get('rewardError');
+    if (rewardError !== null || ((callbackUrl.searchParams.get('rewardXConnected') === 'true' || callbackUrl.searchParams.get('rewardInstagramConnected') === 'true') && address)) {
       setOpen(true);
-      void loadStatus(address);
+      setCallbackError(rewardError !== null ? getRewardCallbackMessage(rewardError) : null);
+      if (address) void loadStatus(address);
+      callbackUrl.searchParams.delete('rewardError');
       callbackUrl.searchParams.delete('rewardXConnected');
+      callbackUrl.searchParams.delete('rewardInstagramConnected');
       window.history.replaceState({}, '', `${callbackUrl.pathname}${callbackUrl.search}${callbackUrl.hash}`);
     }
     return () => { window.removeEventListener(WELCOME_MODAL_AFTER_SIGN_IN_EVENT, show); window.removeEventListener(OPEN_REWARD_CLAIM_EVENT, show); };
@@ -102,10 +110,15 @@ export default function RewardClaimModal() {
 
   useEffect(() => {
     if (!open) return;
+    const refresh = () => { if (address) void loadStatus(address); };
+    window.addEventListener('focus', refresh);
     const onKeyDown = (event: KeyboardEvent) => event.key === 'Escape' && setOpen(false);
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open]);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [open, address, loadStatus]);
 
   const acceptTerms = async () => {
     if (status.termsAccepted || !address) return;
@@ -120,46 +133,23 @@ export default function RewardClaimModal() {
     finally { setAcceptingTerms(false); }
   };
 
-  const connectX = () => {
+  const connectSocial = async (provider: 'x' | 'instagram') => {
     if (!address) return;
-    if (!status.termsAccepted) { setMessage('Acepta los términos y condiciones antes de autenticar X.'); return; }
-    const returnTo = `${window.location.pathname}${window.location.search}`;
-    window.location.assign(`/api/rewards/connect/x?returnTo=${encodeURIComponent(returnTo)}`);
-  };
-
-  const followOnX = async () => {
-    if (!address) return;
-    setFollowingX(true); setMessage(null);
-    try {
-      const response = await fetch('/api/rewards/follow/x', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || 'No se pudo seguir la cuenta en X');
-      if (payload.x) setStatus(payload);
-      else await loadStatus(address, true);
-      setMessage(payload.pendingFollow
-        ? 'X recibió la solicitud. La cuenta es privada y el follow está pendiente de aprobación.'
-        : 'Ahora sigues a @cholocoinmeme en X.');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'No se pudo seguir la cuenta en X');
-    } finally {
-      setFollowingX(false);
+    setCallbackError(null);
+    setMessage(null);
+    if (!status.termsAccepted) {
+      setMessage('Acepta los términos y condiciones antes de autenticar tus cuentas.');
+      return;
     }
-  };
-
-  const claim = async () => {
-    if (!address) return;
-    setClaiming(true); setMessage(null);
+    setChecking(true);
     try {
-      const response = await fetch('/api/rewards/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || 'No se pudo reclamar la recompensa');
-      setStatus(payload); setMessage('¡Listo! Tu recompensa de 1,000 $CHOLOs fue registrada.');
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo reclamar la recompensa'); }
-    finally { setClaiming(false); }
+      await ensureRewardSession(address);
+      const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      window.location.assign(`/api/rewards/connect/${provider}?returnTo=${encodeURIComponent(returnTo)}`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo iniciar la autenticación.');
+      setChecking(false);
+    }
   };
 
   if (!open || typeof document === 'undefined') return null;
@@ -167,9 +157,9 @@ export default function RewardClaimModal() {
     <div className="reward-modal-backdrop" role="presentation" onMouseDown={() => setOpen(false)}>
       <section className="reward-modal" role="dialog" aria-modal="true" aria-labelledby="reward-title" onMouseDown={(event) => event.stopPropagation()}>
         <button className="reward-modal-close" onClick={() => setOpen(false)} aria-label="Cerrar"><X size={20} /></button>
-        <p className="cholo-kicker">Recompensa de bienvenida</p>
-        <h2 id="reward-title">Reclama <span>1,000 $CHOLOs</span></h2>
-        <p className="reward-modal-lead">Conecta X y sigue a la manada. Verificaremos el requisito antes de habilitar la recompensa.</p>
+        <p className="cholo-kicker">Posibles recompensas</p>
+        <h2 id="reward-title">Conecta con <span>la manada</span></h2>
+        <p className="reward-modal-lead">Autentica tus cuentas para participar en posibles recompensas. La selección y distribución se revisan manualmente; no están garantizadas.</p>
         <label className="reward-terms-consent">
           <input type="checkbox" checked={status.termsAccepted} disabled={status.termsAccepted || acceptingTerms} onChange={(event) => event.target.checked && void acceptTerms()} />
           <span className="reward-terms-check" aria-hidden="true">
@@ -178,26 +168,35 @@ export default function RewardClaimModal() {
           <span>Acepto los <Link href="/reward-terms" target="_blank" rel="noopener noreferrer">Términos y condiciones de recompensa</Link>.</span>
         </label>
         <div className="reward-modal-steps">
-          <article className={status.x.following ? 'is-complete' : ''}>
-            <span className="reward-step-number">01</span>
-            <div className="reward-step-icon"><b>𝕏</b></div>
-            <div className="reward-step-copy"><strong>X</strong><span>{status.x.username ? `@${status.x.username.replace(/^@/, '')}` : SOCIALS.x.account}</span></div>
-            {status.x.following ? <span className="reward-verified"><Check size={16} /> Siguiendo</span> : status.x.connected ? <button onClick={followOnX} disabled={followingX}>{followingX ? 'Siguiendo...' : 'Seguir desde CHOLO'}</button> : <button onClick={connectX}>Autenticar</button>}
-          </article>
-          <article>
-            <span className="reward-step-number">02</span>
-            <div className="reward-step-icon">
-              <Image src="/instagram.svg" alt="" width={22} height={22} unoptimized />
-            </div>
-            <div className="reward-step-copy"><strong>{SOCIALS.instagram.label}</strong><span>{SOCIALS.instagram.account}</span></div>
-            <a href={SOCIALS.instagram.followUrl} target="_blank" rel="noopener noreferrer">Seguir</a>
-          </article>
+          {(['x', 'instagram'] as const).map((provider, index) => {
+            const social = SOCIALS[provider];
+            const connected = status[provider]?.connected;
+            const username = status[provider]?.username;
+            return (
+              <article key={provider} className={connected ? 'is-complete' : ''}>
+                <span className="reward-step-number">0{index + 1}</span>
+                <div className="reward-step-icon">
+                  {provider === 'x' ? <b>𝕏</b> : <Image src="/instagram.svg" alt="" width={22} height={22} unoptimized />}
+                </div>
+                <div className="reward-step-copy">
+                  <strong>{social.label}</strong>
+                  <span>{connected ? (username ? `@${username.replace(/^@+/, '')}` : 'Cuenta conectada') : 'Sin autenticar'}</span>
+                  {connected && <small className="reward-verified"><Check size={12} /> Autenticado</small>}
+                </div>
+                <div className="reward-social-actions">
+                  {!connected && <button onClick={() => void connectSocial(provider)} disabled={checking || !address || !status.termsAccepted}>Autenticar {social.label}</button>}
+                  <a href={social.followUrl} target="_blank" rel="noopener noreferrer" aria-label={`Seguir a ${social.account} en ${social.label}`}>Seguir {social.account}</a>
+                </div>
+              </article>
+            );
+          })}
         </div>
-        <button className="reward-check-button" onClick={() => address && loadStatus(address, true)} disabled={checking || !address}>{checking ? <LoaderCircle className="animate-spin" size={17} /> : <ShieldCheck size={17} />}{checking ? 'Comprobando...' : 'Comprobar automáticamente'}</button>
-        <button className="reward-claim-button" onClick={claim} disabled={!status.eligible || !status.termsAccepted || status.claimed || claiming}>{status.claimed ? 'Recompensa reclamada' : claiming ? 'Registrando...' : 'Reclamar 1,000 $CHOLOs'}</button>
-        {message && <p className="reward-modal-message" role="status">{message}</p>}
+        <p className="reward-modal-fineprint">Instagram permite autenticar cuentas de creador o empresa. Los enlaces para seguir son opcionales y no se verifican.</p>
+        <button className="reward-check-button" onClick={() => address && loadStatus(address, true)} disabled={checking || !address}>{checking ? <LoaderCircle className="animate-spin" size={17} /> : <ShieldCheck size={17} />}{checking ? 'Actualizando...' : 'Actualizar cuentas'}</button>
+        <p className="reward-modal-message" role="status">{status.eligible ? 'Perfil elegible para evaluación de posibles recompensas. No hay una recompensa aprobada ni un envío automático.' : 'Acepta los términos y autentica una cuenta para participar.'}</p>
+        {callbackError ? <p className="reward-modal-message" role="alert">{callbackError}</p> : message && <p className="reward-modal-message" role="status">{message}</p>}
         <p className="reward-modal-fineprint">
-          Una recompensa por persona y billetera. Nunca te pediremos tu frase semilla.
+          Autenticar tus cuentas no garantiza recibir tokens. Nunca te pediremos tu frase semilla.
         </p>
       </section>
     </div>, document.body,

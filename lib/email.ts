@@ -1,9 +1,36 @@
-import { Resend } from 'resend';
+import nodemailer, { type Transporter } from 'nodemailer';
 
-const resendApiKey = process.env.RESEND_API_KEY;
-const configuredFromAddress = process.env.RESEND_FROM_EMAIL?.trim();
-const isTestApiKey = Boolean(resendApiKey?.startsWith('re_test_'));
-const resendClient = resendApiKey ? new Resend(resendApiKey) : null;
+const getEnv = (...names: string[]) => {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return undefined;
+};
+
+const parseBooleanEnv = (...names: string[]) => {
+  const value = getEnv(...names);
+  if (!value) return undefined;
+  return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
+};
+
+const gmailUser = getEnv('GMAIL_USER');
+const gmailPassword = getEnv('GMAIL_APP_PASSWORD');
+const smtpHost = getEnv('SMTP_HOST', 'MAIL_HOST');
+const smtpPortValue = getEnv('SMTP_PORT', 'MAIL_PORT');
+const smtpPort = smtpPortValue ? Number(smtpPortValue) : undefined;
+const smtpSecure = parseBooleanEnv('SMTP_SECURE', 'MAIL_SECURE') ?? smtpPort === 465;
+const smtpUser = getEnv('SMTP_USER', 'MAIL_USER');
+const smtpPassword = getEnv('SMTP_PASSWORD', 'SMTP_PASS', 'MAIL_PASSWORD', 'MAIL_PASS');
+const configuredFromAddress = getEnv(
+  'SMTP_FROM_EMAIL',
+  'MAIL_FROM_EMAIL',
+  'EMAIL_FROM',
+  'GMAIL_FROM_EMAIL',
+  'GMAIL_USER'
+);
+const hasMailTransportConfig = Boolean(smtpHost || (gmailUser && gmailPassword));
+let mailTransporter: Transporter | null = null;
 
 const normalizeFromAddress = (value?: string) => {
   if (!value) return undefined;
@@ -28,14 +55,49 @@ const normalizeFromAddress = (value?: string) => {
   return trimmed;
 };
 
-const resendFromAddress = normalizeFromAddress(configuredFromAddress);
+const defaultFromAddress = normalizeFromAddress(configuredFromAddress);
+
+const getMailTransporter = () => {
+  if (mailTransporter) return mailTransporter;
+
+  if (!hasMailTransportConfig) {
+    throw new Error('SMTP mail service is not configured. Set SMTP_HOST/SMTP_PORT with credentials, or GMAIL_USER and GMAIL_APP_PASSWORD.');
+  }
+
+  if (smtpPortValue) {
+    const parsedSmtpPort = Number(smtpPortValue);
+    if (!Number.isInteger(parsedSmtpPort) || parsedSmtpPort <= 0) {
+      throw new Error('SMTP_PORT must be a valid positive integer.');
+    }
+  }
+
+  if (smtpHost) {
+    mailTransporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort ?? (smtpSecure ? 465 : 587),
+      secure: smtpSecure,
+      auth: smtpUser && smtpPassword ? { user: smtpUser, pass: smtpPassword } : undefined,
+    });
+    return mailTransporter;
+  }
+
+  mailTransporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: gmailUser,
+      pass: gmailPassword,
+    },
+  });
+
+  return mailTransporter;
+};
 
 const simulateEmailSend = (options: EmailOptions, reason: string) => {
-  console.warn(`📧 Email delivery skipped (${reason}).`);
-  console.log('📧 [SIMULATED SEND]', {
+  console.warn(`Email delivery skipped (${reason}).`);
+  console.log('[SIMULATED SEND]', {
     to: options.to,
     subject: options.subject,
-    from: options.from || resendFromAddress || 'Configure RESEND_FROM_EMAIL',
+    from: options.from || defaultFromAddress || 'Configure SMTP_FROM_EMAIL, MAIL_FROM_EMAIL, EMAIL_FROM, or GMAIL_USER',
   });
   return { success: true, messageId: `${reason}-${Date.now()}` };
 };
@@ -51,51 +113,38 @@ interface EmailOptions {
 
 export async function sendEmail(options: EmailOptions) {
   try {
-    if (!resendFromAddress) {
-      const message = 'RESEND_FROM_EMAIL is not configured. Set it to a verified sender, like noreply@example.com or CHOLO <noreply@example.com>.';
+    if (!defaultFromAddress) {
+      const message = 'Email from address is not configured. Set SMTP_FROM_EMAIL, MAIL_FROM_EMAIL, EMAIL_FROM, GMAIL_FROM_EMAIL, or GMAIL_USER.';
       if (process.env.NODE_ENV !== 'production') {
         return simulateEmailSend(options, 'missing-from-address');
       }
       throw new Error(message);
     }
 
-    if (!resendClient) {
+    if (!hasMailTransportConfig) {
       if (process.env.NODE_ENV !== 'production') {
-        return simulateEmailSend(options, 'missing-api-key');
+        return simulateEmailSend(options, 'missing-smtp-config');
       }
-      throw new Error('Resend API key is not configured. Set RESEND_API_KEY to send emails.');
+      throw new Error('SMTP mail service is not configured. Set SMTP_HOST/SMTP_PORT with credentials, or GMAIL_USER and GMAIL_APP_PASSWORD.');
     }
 
-    if (isTestApiKey) {
-      const warning = 'RESEND_API_KEY starts with re_test_. Test keys do not deliver real emails. Create a Live API key in the Resend dashboard.';
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn(warning);
-        return simulateEmailSend(options, 'test-api-key');
-      }
-      throw new Error(warning);
-    }
+    const from = normalizeFromAddress(options.from) || defaultFromAddress;
+    const transporter = getMailTransporter();
 
-    const to = Array.isArray(options.to) ? options.to : [options.to];
-    const from = normalizeFromAddress(options.from) || resendFromAddress;
-
-    const { data, error } = await resendClient.emails.send({
+    const info = await transporter.sendMail({
       from,
-      to,
+      to: options.to,
       subject: options.subject,
       html: options.html,
       cc: options.cc,
       bcc: options.bcc,
     });
 
-    if (error) {
-      throw new Error(error.message ?? 'Resend failed to send email');
-    }
-
-    const messageId = data?.id ?? 'resend-' + Date.now();
-    console.log('✅ Email sent successfully:', messageId);
+    const messageId = info.messageId ?? `nodemailer-${Date.now()}`;
+    console.log('Email sent successfully:', messageId);
     return { success: true, messageId };
   } catch (error) {
-    console.error('❌ Failed to send email:', error);
+    console.error('Failed to send email:', error);
     throw new Error('Failed to send email: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 }
