@@ -17,6 +17,7 @@ export const Navbar = () => {
           <Link href="/#tokenomics">Tokenomics</Link>
           <Link href="/#gallery">Archivo</Link>
           <Link href="/wallet">Billetera</Link>
+          <Link href="/dao">DAO</Link>
           <button
             type="button"
             aria-haspopup="dialog"

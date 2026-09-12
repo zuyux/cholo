@@ -1,12 +1,14 @@
 import { AddressPurpose, BitcoinNetworkType, request as satsRequest } from 'sats-connect';
 
-import { getWalletErrorMessage, isWalletRequestCancelled } from '@/lib/walletErrors';
+import { getWalletErrorMessage, isWalletRequestCancelled } from './walletErrors';
+
+import { validateStacksAddress } from '@stacks/transactions';
+import { inferNetworkFromAddress } from './network';
 
 const CHOLO_SIGN_IN_DOMAIN = 'cholo.meme';
 const CHOLO_SIGN_IN_URI = 'https://cholo.meme';
 const CHOLO_SIGN_IN_STATEMENT = 'CHOLO';
 const CHOLO_SIGN_IN_VERSION = '1';
-const CHOLO_SIGN_IN_CHAIN_ID = '1';
 const CHOLO_SIGN_IN_NETWORK = BitcoinNetworkType.Mainnet;
 const MAINNET_STACKS_ADDRESS_PREFIXES = ['SP', 'SM'];
 
@@ -27,6 +29,7 @@ type StacksSignInSignature = {
 
 type WalletConnectAddress = {
   purpose?: string;
+  symbol?: string;
   address?: string;
 };
 
@@ -71,7 +74,7 @@ export const buildCholoStacksSignInMessage = (address: string, issuedAt = new Da
     CHOLO_SIGN_IN_STATEMENT,
     `URI: ${CHOLO_SIGN_IN_URI}`,
     `Version: ${CHOLO_SIGN_IN_VERSION}`,
-    `Chain ID: ${CHOLO_SIGN_IN_CHAIN_ID}`,
+    `Chain ID: ${inferNetworkFromAddress(address) === 'testnet' ? '2147483648' : '1'}`,
     `Nonce: ${createNonce()}`,
     `Issued At: ${issuedAt.toISOString()}`,
   ].join('\n');
@@ -133,33 +136,31 @@ export const requestXverseMainnetStacksAddress = async (): Promise<string> => {
   return stacksAddress;
 };
 
-export const requestLeatherMainnetStacksAddress = async (provider: RpcCapableProvider): Promise<string> => {
-  const requests: Array<[string, unknown?]> = [
-    ['stx_getAddresses', { network: 'mainnet' }],
-    ['getAddresses', { network: 'mainnet' }],
-    ['getAddresses'],
-  ];
-
-  for (const [method, params] of requests) {
+// Omitting the network lets Leather return its currently selected account/network.
+// Never retry a cancellation or convert a returned address to a different network.
+export const requestLeatherStacksAddress = async (provider: RpcCapableProvider): Promise<string> => {
+  const methods = ['getAddresses', 'stx_getAddresses'];
+  for (const method of methods) {
+    let response: unknown;
     try {
-      const response = await provider.request(method, params);
-      const addresses = ((response as StacksAddressResponse)?.result?.addresses ?? (response as StacksAddressResponse)?.addresses) ?? [];
-      const stacksAddress = addresses.find(
-        (address) => address.purpose === AddressPurpose.Stacks || address.address?.toUpperCase().startsWith('S')
-      )?.address;
-
-      if (stacksAddress) {
-        assertMainnetStacksAddress(stacksAddress, 'Leather');
-        return stacksAddress;
-      }
+      response = await provider.request(method);
+      const rpcError = (response as { error?: unknown })?.error;
+      if (rpcError) throw rpcError;
     } catch (error) {
-      if (error instanceof Error && /testnet Stacks address/i.test(error.message)) {
-        throw error;
-      }
+      const code = (error as { code?: number; error?: { code?: number } })?.code
+        ?? (error as { error?: { code?: number } })?.error?.code;
+      if (code === -32601 && method === methods[0]) continue;
+      throw new Error(normalizeSignInError(error, 'Leather'));
     }
+    const addresses = (response as StacksAddressResponse)?.result?.addresses ?? (response as StacksAddressResponse)?.addresses;
+    if (!Array.isArray(addresses)) throw new Error('Leather returned an invalid address response.');
+    const candidates = addresses.filter((entry) => entry && typeof entry.address === 'string' &&
+      validateStacksAddress(entry.address) && inferNetworkFromAddress(entry.address));
+    const unique = [...new Set(candidates.map((entry) => entry.address!))];
+    if (unique.length !== 1) throw new Error('Leather did not return a single active Stacks account. Select an account and network in Leather, then reconnect.');
+    return unique[0];
   }
-
-  throw new Error('No mainnet Stacks address found in Leather. Switch Leather to mainnet and try again.');
+  throw new Error('Leather does not support address requests. Update the extension and try again.');
 };
 
 export const requestLeatherStacksSignIn = async (
@@ -167,10 +168,13 @@ export const requestLeatherStacksSignIn = async (
   address: string,
   message = buildCholoStacksSignInMessage(address),
 ): Promise<StacksSignInSignature> => {
-  assertMainnetStacksAddress(address, 'Leather');
+  const network = inferNetworkFromAddress(address);
+  if (!network || !validateStacksAddress(address)) throw new Error('Invalid Stacks sign-in address.');
 
   try {
-    const response = await provider.request('stx_signMessage', { message });
+    const response = await provider.request('stx_signMessage', { message, messageType: 'utf8', network });
+    const rpcError = (response as { error?: unknown })?.error;
+    if (rpcError) throw rpcError;
     return parseSignatureResponse(response, message);
   } catch (error) {
     throw new Error(normalizeSignInError(error, 'Leather'));

@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "vitest"
+    "test": "vitest",
+    "test:dao:accounts": "RUN_DAO_ENV_TESTS=1 vitest run lib/cholo-dao.test.ts lib/cholo-dao.accounts.test.ts",
+    "test:dao:testnet": "node scripts/test-dao-testnet.mjs"
   },
   "dependencies": {
     "@bitflowlabs/core-sdk": "^3.1.0",

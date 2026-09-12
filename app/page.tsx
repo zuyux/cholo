@@ -175,10 +175,6 @@ export default function HomePage() {
     }
   };
 
-  const openAuthFlow = () => {
-    window.dispatchEvent(new Event(OPEN_AUTH_FLOW_EVENT));
-  };
-
   const openRewardFlow = () => {
     window.dispatchEvent(new Event(currentAddress ? OPEN_REWARD_CLAIM_EVENT : OPEN_AUTH_FLOW_EVENT));
   };
@@ -288,19 +284,9 @@ export default function HomePage() {
       </section>
 
       <section className="cholo-paper-section cholo-mission" id="mission">
-        <div className="cholo-shell mission-grid">
-          <div>
-            <p className="cholo-kicker">04 / La misión</p>
-            <h2 className="text-right">no prometemos nada. <br/>lo haremos todo.</h2>
-            <p>$CHOLO convierte la energía de una comunidad meme en apoyo al desarrollo de un videojuego, investigación, educación cripto, arte y código abierto.</p>
-            <button className="cholo-button mission-button cursor-pointer" type="button" onClick={openAuthFlow}>Entrar al ecosistema <ArrowUpRight size={15} /></button>
-          </div>
-          <div className="mission-list">
-            <article><span>01</span><h3>GameFi</h3><p>Juego de metaverso abierto para competir por $CHOLOs.</p></article>
-            <article><span>02</span><h3>DeSci</h3><p>Subvenciones abiertas para ciencia e investigación chola.</p></article>
-            <article><span>03</span><h3>Cultura</h3><p>Memoria ancestral reinterpretada por artistas cholazos.</p></article>
-            <article><span>04</span><h3>Código abierto</h3><p>Herramientas públicas, transparentes y cholas.</p></article>
-          </div>
+        <div className="cholo-shell flex flex-col items-center gap-8 text-center">
+          <h2>no prometemos nada</h2>
+          <a className="cholo-button mission-button cursor-pointer" href="https://cholo.meme/cholopaper">Leer Cholopaper <ArrowUpRight size={15} /></a>
         </div>
       </section>
 
@@ -323,7 +309,7 @@ export default function HomePage() {
         <div className="cholo-shell footer-main-cholo">
           <a href="#top" className="footer-brand-cholo"><Image src="/cholo-min.png" alt="" width={52} height={52} /><span>$CHOLO<br /></span></a>
           <p>el perro punk que nunca obdc.</p>
-          <div><a href="https://x.com/cholocoinmeme" target="_blank" rel="noreferrer">X ↗</a><Link href="/wallet">Billetera ↗</Link><Link href="/account">Cuenta ↗</Link></div>
+          <div><a href="https://x.com/cholocoinmeme" target="_blank" rel="noreferrer">X ↗</a><Link href="/wallet">Billetera ↗</Link><Link href="/dao">DAO ↗</Link><Link href="/account">Cuenta ↗</Link></div>
         </div>
         <div className="cholo-shell footer-fineprint"><span>© 2026 $CHOLO</span><p>Token cultural y educativo. No representa una promesa de retorno financiero.</p></div>
       </footer>

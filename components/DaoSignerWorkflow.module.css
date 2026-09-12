@@ -1,0 +1,15 @@
+.workflow { margin:24px 0; padding:20px; border:1px solid #927046; background:#181411; }
+.workflow h4 { font-size:1.05rem; font-weight:700; }
+.steps { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; list-style:none; margin:20px 0; padding:0; }
+.steps li { padding:14px; border:1px solid #68513c; min-width:0; }
+.steps li[data-complete="true"] { border-color:#78a58a; }
+.steps li[aria-current="step"] { outline:2px solid #efc48c; outline-offset:2px; }
+.steps p { font-size:.85rem; }
+.signers { margin:20px 0; }
+.signers summary { cursor:pointer; font-weight:700; padding:12px 0; }
+.signers ul { list-style:none; padding:0; }
+.signers li { display:grid; grid-template-columns:130px minmax(0,1fr) auto; align-items:center; gap:12px; border-bottom:1px solid #68513c; padding:14px 0; font-size:.85rem; }
+.address { overflow-wrap:anywhere; font-family:monospace; }
+.nextAction { border-top:1px solid #68513c; padding-top:20px; }
+.actions { display:flex; gap:12px; flex-wrap:wrap; }
+@media(max-width:760px) { .steps { grid-template-columns:1fr; } .signers li { grid-template-columns:1fr; gap:6px; } .workflow { padding:16px; } .actions button { width:100%; } }

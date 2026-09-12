@@ -13,7 +13,7 @@ import { getWalletErrorMessage, isWalletRequestCancelled } from '@/lib/walletErr
 import { connectOkxWallet } from '@/lib/okxWallet';
 import { connectWalletConnect } from '@/lib/walletConnectWallet';
 import {
-  requestLeatherMainnetStacksAddress,
+  requestLeatherStacksAddress,
   requestLeatherStacksSignIn,
   requestXverseMainnetStacksAddress,
   requestXverseStacksSignIn,
@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { getConnectedAccountPasskeyByAddress, getConnectedAccountByAddress } from '@/lib/connectedAccountsApi';
 import { decryptPortableEncryptedWallet, type WalletData } from '@/lib/encryptedStorage';
 import ImportWalletModal from './ImportWalletModal';
+import { inferNetworkFromAddress, persistNetwork } from '@/lib/network';
 import { authenticateRewardWallet } from '@/lib/rewardAuthClient';
 // Password verification utility for settings changes
 // Usage: await verifyPassphraseForSettings(address, passphrase, privateKey)
@@ -378,10 +379,12 @@ export default function ConnectModal({ onClose, onSuccess, onError, initialConne
                                 typeof (provider as { request?: unknown }).request === "function"
                               ) {
                                 const leatherProvider = provider as { request: (method: string, params?: unknown) => Promise<unknown> };
-                                const stxAddress = await requestLeatherMainnetStacksAddress(leatherProvider);
+                                const stxAddress = await requestLeatherStacksAddress(leatherProvider);
                                 await authenticateRewardWallet(stxAddress, (message) => requestLeatherStacksSignIn(leatherProvider, stxAddress, message));
                                 setAddress(stxAddress);
                                 setWalletType('leather');
+                                const network = inferNetworkFromAddress(stxAddress);
+                                if (network) persistNetwork(network);
                                 await persistSessionForWallet(stxAddress, 'leather');
                                 onSuccess?.();
                                 onClose();

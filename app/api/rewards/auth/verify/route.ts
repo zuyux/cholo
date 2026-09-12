@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAddressFromPublicKey } from '@stacks/transactions';
-import { verifyMessageSignatureRsv } from '@stacks/encryption';
+import { verifyStacksWalletProof } from '@/lib/stacksWalletProof';
 import { establishRewardSession, readRewardChallenge } from '@/lib/rewardAuth';
 
 export async function POST(request: NextRequest) {
@@ -10,9 +9,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Prueba de propiedad incompleta o expirada' }, { status: 401 });
   }
   try {
-    const validSignature = verifyMessageSignatureRsv({ message: challenge.message, signature, publicKey });
-    const proofAddress = getAddressFromPublicKey(publicKey, 'mainnet');
-    if (!validSignature || proofAddress.toLowerCase() !== challenge.address.toLowerCase()) {
+    if (!verifyStacksWalletProof({ address: challenge.address, message: challenge.message, signature, publicKey })) {
       return NextResponse.json({ error: 'La firma no corresponde a esta billetera' }, { status: 403 });
     }
     const response = NextResponse.json({ success: true });

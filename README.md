@@ -1,5 +1,7 @@
 # $CHOLO
 
+La interfaz de tesorería testnet está en `/dao`. Consulta la [guía del DAO y cambio del primer firmante](docs/cholo-dao.md) para conectar una wallet, crear propuestas, aprobarlas y ejecutarlas.
+
 **CHOLO es una memecoin peruana construida sobre Stacks, el ecosistema de
 Bitcoin.**
 
